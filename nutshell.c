@@ -1,20 +1,14 @@
 #include "global.h"
-<<<<<<< Updated upstream
+
 =======
 //#include "nutshell.h"
 #include "nutshparser.tab.h"
 #include "CommandTable.h"
->>>>>>> Stashed changes
 
-main(){
-//set environment variables
-//set main settings
-<<<<<<< Updated upstream
-    while(1)
-        printf("please enter something: ");//shell loop
-        yyparse();
-}
-=======
+
+int main(){
+	//set environment variables
+	//set main settings
     shell_init();
 	
     while (1) {
