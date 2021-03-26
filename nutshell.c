@@ -1,10 +1,10 @@
 #include "global.h"
 
-=======
+
 //#include "nutshell.h"
 #include "nutshparser.tab.h"
 #include "CommandTable.h"
-
+extern int yyparse();
 
 int main(){
 	//set environment variables
@@ -136,4 +136,3 @@ void execute_it()
 // 	// end points (using pipe, dup) 
 // 	//Process background
 }
->>>>>>> Stashed changes

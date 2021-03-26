@@ -6,6 +6,7 @@
 #warning DOESNT_HAVE_STRDUP
 char *strdup(const char *s);
 #endif
+%}
 
 %% 
 
