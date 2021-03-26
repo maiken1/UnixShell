@@ -1,13 +1,14 @@
-/* -*- indented-text -*- */
-
 %{
 #include "global.h"
 
-extern void yyerror (char const *s) {
+extern void yyerror (char *s) {
    fprintf (stderr, "%s\n", s);
  };
-extern int yylex(void);
-int yylex();
+extern int yylex();
+int yyparse();
+int yywrap() {
+        return 1;
+}
 
 %}
 
@@ -16,55 +17,74 @@ int yylex();
 }
 
 
-%start cmd_line
-%token <string> EXIT PIPE INPUT_REDIR OUTPUT_REDIR STRING NL BACKGROUND
+%token NOTOKEN GREAT NEWLINE WORD GREATGREAT PIPE AMPERSAND LESS GREATGREATAMPERSAND GREATAMPERSAND
 
 
 %%
-cmd_line    :
-        | EXIT             { }
-        | pipeline back_ground
-        ;
 
-back_ground : BACKGROUND        {  }
-        |                       {  }
-        ;
+input:
+        %empty
+        | input object { printf("input found"); } ;
 
-simple      : command redir
-        ;
+object:
+        WORD 
+         ; 
 
-command     : command STRING
-                {
-                }
-        | STRING
-                {
-                }
-        ;
+// goal:	
+// 	commands
+// 	;
 
-redir       : input_redir output_redir
-        ;
+// commands: 
+// 	command
+// 	| commands command 
+// 	;
 
-output_redir:    OUTPUT_REDIR STRING
-                { 
-                }
-        |        /* empty */
-				{
-				}
-        ;
+// command: simple_command
+//         ;
 
-input_redir:    INPUT_REDIR STRING
-                {
-                }
-        |       /* empty */
-                {
-				}
-        ;
+// simple_command:	
+// 	command_and_args iomodifier_opt NEWLINE {
+// 		printf("   Yacc: Execute command\n");
+// 		Command::_currentCommand.execute();
+// 	}
+// 	| NEWLINE 
+// 	| error NEWLINE { yyerrok; }
+// 	;
 
-pipeline    : pipeline PIPE simple
-                {
-                }
-        | simple
-                {
-                }
-        ;
+// command_and_args:
+// 	command_word arg_list {
+// 		Command::_currentCommand.
+// 			insertSimpleCommand( Command::_currentSimpleCommand );
+// 	}
+// 	;
+
+// arg_list:
+// 	arg_list argument
+// 	| /* empty */
+// 	;
+
+// argument:
+// 	WORD {
+//                printf("   Yacc: insert argument \"%s\"\n", $1);
+
+// 	       Command::_currentSimpleCommand->insertArgument( $1 );\
+// 	}
+// 	;
+
+// command_word:
+// 	WORD {
+//                printf("   Yacc: insert command \"%s\"\n", $1);
+	       
+// 	       Command::_currentSimpleCommand = new SimpleCommand();
+// 	       Command::_currentSimpleCommand->insertArgument( $1 );
+// 	}
+// 	;
+
+// iomodifier_opt:
+// 	GREAT WORD {
+// 		printf("   Yacc: insert output \"%s\"\n", $2);
+// 		Command::_currentCommand._outFile = $2;
+// 	}
+// 	| /* empty */ 
+// 	;
 %%
