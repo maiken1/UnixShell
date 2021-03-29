@@ -1,28 +1,24 @@
 
 %{
-#include "nutshparser.tab.h"
+
 #include <string.h>
-#define YYDEBUG 1;
-#ifdef DOESNT_HAVE_STRDUP
-#warning DOESNT_HAVE_STRDUP
-char *strdup(const char *s);
-#endif
+#include "y.tab.h"
 
 %}
 
-%% 
+%%
 
-\n      {
-            //return NEWLINE;
-        }
+\n 	{
+		return NEWLINE;
+	}
 
-[ \t]   {
-            /* Discard spaces and tabs */
-        }
+[ \t] 	{
+		/* Discard Spaces and Tabs */
+     	}	
 
-">"     {
-            return GREAT;
-        }
+">" 	{
+		return GREAT;
+		}
 
 "<"     {
             return LESS;
@@ -48,14 +44,15 @@ char *strdup(const char *s);
             return AMPERSAND;
         }
 
-[a-zA-Z][a-zA-Z0-9]*   {
-            yylval.string = strdup(yytext);
+[^ \t\n][^ \t\n]*   {
+            yylval.string_val = strdup(yytext);
             return WORD;
         }
 
-.       {
-            /* Add Tokens Above Here */
-            /*Invalid Character in input */
-            return NOTOKEN;
-        }
+.	{
+		/* Invalid character in input */
+		return NOTOKEN;
+	}
+
 %%
+	
