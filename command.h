@@ -1,6 +1,7 @@
 
-#ifndef command_h
-#define command_h
+#pragma once
+// #include <vector>
+// std::vector<char *> alias_list;
 
 // Command Data Structure
 struct SimpleCommand {
@@ -28,6 +29,7 @@ struct Command {
 	void print();
 	void execute();
 	void clear();
+	int CheckNumberOfArguments(char* command, int inputArguments, int min, int max);
 	int search(char * file, char * const argv[]);
 	
 	Command();
@@ -37,4 +39,3 @@ struct Command {
 	static SimpleCommand *_currentSimpleCommand;
 };
 
-#endif

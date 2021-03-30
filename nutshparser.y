@@ -20,12 +20,28 @@
 extern "C" int yylex();
 #define yylex yylex
 #include <stdio.h>
+#include <string>
 #include "command.h"
 
 void
 yyerror(const char * s)
 {
 	fprintf(stderr,"%s", s);
+}
+
+std::string expandEnvVars(std::string arg) {
+	if (arg.find('${') == NULL || arg.find('}') == NULL) {
+		return arg;
+	}
+	else {
+		std::string before = arg(0, arg.find('${'));
+		std::string envVariable = arg(arg.find('${') + 2, arg.find('}'));
+		char* getEnv = getenv(envVariable.c_str());
+		std::string envVarConverted = std::string(getEnv);
+		std::string after = arg(arg.find('}') + 1);
+		
+		return expandEnvVars(before + envVarConverted + after);
+	}
 }
 
 %}
@@ -49,16 +65,14 @@ simple_command:
 	pipe_list iomodifier_opt background_optional NEWLINE {
 		printf("   Yacc: Execute command\n");
 		Command::_currentCommand.execute();
-		Command::_currentCommand.prompt();
 	}
-	| NEWLINE 
+	| NEWLINE {Command::_currentCommand.execute();}
 	| error NEWLINE { yyerrok; }
 	;
 
 command_and_args:
 	command_word arg_list {
-		Command::_currentCommand.
-			insertSimpleCommand( Command::_currentSimpleCommand );
+		Command::_currentCommand.insertSimpleCommand( Command::_currentSimpleCommand );
 	}
 	;
 
@@ -75,8 +89,7 @@ pipe_list:
 argument:
 	WORD {
                printf("   Yacc: insert argument \"%s\"\n", $1);
-
-	       Command::_currentSimpleCommand->insertArgument( $1 );\
+	       Command::_currentSimpleCommand->insertArgument( expandEnvVars(std::string($1)).c_str() );\
 	}
 	;
 
@@ -85,7 +98,7 @@ command_word:
                printf("   Yacc: insert command \"%s\"\n", $1);
 	       
 	       Command::_currentSimpleCommand = new SimpleCommand();
-	       Command::_currentSimpleCommand->insertArgument( $1 );
+		   Command::_currentSimpleCommand->insertArgument( expandEnvVars(std::string($1)).c_str() )
 	}
 	;
 
@@ -114,6 +127,8 @@ background_optional:
 	}
 	|/* empty */
 %%
+
+
 
 #if 0
 main()

@@ -13,6 +13,9 @@
 #include "command.h"
 using namespace std;
 
+int yyparse(void);
+extern char** environ;
+
 SimpleCommand::SimpleCommand()
 {
 	// Creat available space for 5 arguments
@@ -126,6 +129,8 @@ Command::print()
 	
 }
 
+
+
 void
 Command::execute()
 {
@@ -139,10 +144,8 @@ Command::execute()
 		// Print contents of Command data structure
 		print();
 
-		string someString(_simpleCommands[0]->_arguments[0]);
-
-		int tmpin = dup(0);
-		int tmpout = dup(1);
+		int defaultin = dup(0);
+		int defaultout = dup(1);
 
 		int fdin;
 		if (_inputFile) {
@@ -150,7 +153,7 @@ Command::execute()
 		}
 		else {
 			//use default input
-			fdin = dup(tmpin);
+			fdin = dup(defaultin);
 		}
 
 		pid_t pid;
@@ -160,19 +163,21 @@ Command::execute()
 			dup2(fdin, 0);
 			close(fdin);
 			//setup output
-			if (i == _numberOfSimpleCommands - 1) {
+			if (_simpleCommands[i] == _simpleCommands[_numberOfSimpleCommands - 1]) {
 				//last command
 				if (_outFile) {
 					fdout = open(_outFile, O_CREAT | O_WRONLY, 0777);
 				}
 				else {
 					//default output
-					fdout = dup(tmpout);
+					fdout = dup(defaultout);
+					printf("I am the last command\n");
 				}
 			}
 
 			else {
 				//not last simple command
+				printf("creating pipes\n");
 				int fdpipe[2];
 				pipe(fdpipe);
 				fdout = fdpipe[1];
@@ -181,26 +186,57 @@ Command::execute()
 			//redirect output
 			dup2(fdout, 1);
 			close(fdout);
-
-			//create child process
+			//may have to deal with this for backgrounds
 			int status;
-			pid = fork();
-			if (pid == 0) {
-				//execution code here
-				// REMOVE THIS CODE
-				//execvp(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_arguments);
-				search(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_arguments);
-				perror("execvp encountered an error");
-				_exit(1);
-				//search path for executable, error if not found
+			string builtinCheck(_simpleCommands[i]->_arguments[0]);
+			
+			if (builtinCheck == "bye") {
+				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 1, 1)) {
+					printf("I want to exit\n");
+				}
+			}
+			else if (builtinCheck == "setenv") {
+				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 3, 3)) {
+					printf("Setting environment variable %s to %s\n", _simpleCommands[i]->_arguments[1], _simpleCommands[i]->_arguments[2]);
+					setenv(_simpleCommands[i]->_arguments[1], _simpleCommands[i]->_arguments[2], 1);
+				}
+			}
+			else if (builtinCheck == "printenv") {
+				char** s = environ;
+				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 1, 1)) {
+					for (; *s; s++) {
+						printf("%s\n", *s);
+					}
+				}
+			}
+			else if (builtinCheck == "unsetenv") {
+				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 2, 2)) {
+					unsetenv(_simpleCommands[i]->_arguments[1]);
+				}
+			}
+			else {
+				//create child process
+				printf("forking\n");
+				pid = fork();
+				if (pid == 0) {
+					//execution code here
+					// REMOVE THIS CODE
+					//execvp(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_arguments);
+					printf("inside fork\n");
+					search(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_arguments);
+					perror("execvp encountered an error");
+					_exit(1);
+					//search path for executable, error if not found
 
+				}
 			}
 			
 			//restore in/out states to default
-			dup2(tmpin, 0);
-			dup2(tmpout, 1);
-			close(tmpin);
-			close(tmpout);
+			dup2(defaultin, 0);
+			dup2(defaultout, 1);
+			close(defaultin);
+			close(defaultout);
+			printf("defaults restored\n");
 
 			if (!_background) {
 				waitpid(pid, &status, WUNTRACED);
@@ -220,11 +256,27 @@ Command::execute()
 		// and call exec
 
 		// Clear to prepare for next command
+		printf("clearing command table\n");
 		clear();
 		// Print new prompt
+
+		printf("printing prompt\n");
+		prompt();
 		
 	}
 	
+}
+
+int Command::CheckNumberOfArguments(char* command, int inputArguments, int min, int max) {
+	if (inputArguments < min) {
+		printf("%s: Too few arguments\n", command);
+		return 0;
+	}
+	else if (inputArguments > max) {
+		printf("%s: Too many arguments\n", command);
+		return 0;
+	}
+	return 1;
 }
 
 int Command::search(char* file, char* const argv[]) {
@@ -287,12 +339,12 @@ Command::prompt()
 Command Command::_currentCommand;
 SimpleCommand * Command::_currentSimpleCommand;
 
-int yyparse(void);
 
 int main()
 {
 	Command::_currentCommand.prompt();
 	yyparse();
+	
 	return 0;
 }
 
