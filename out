@@ -1,0 +1,13 @@
+Makefile
+command.h
+lex.yy.c
+lex.yy.o
+nutflex.l
+nutshell
+nutshell.cpp
+nutshell.o
+nutshparser.y
+out
+y.tab.c
+y.tab.h
+y.tab.o

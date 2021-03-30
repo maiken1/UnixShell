@@ -46,9 +46,10 @@ command: simple_command
         ;
 
 simple_command:	
-	command_and_args iomodifier_opt NEWLINE {
+	pipe_list iomodifier_opt background_optional NEWLINE {
 		printf("   Yacc: Execute command\n");
 		Command::_currentCommand.execute();
+		Command::_currentCommand.prompt();
 	}
 	| NEWLINE 
 	| error NEWLINE { yyerrok; }
@@ -65,6 +66,11 @@ arg_list:
 	arg_list argument
 	| /* empty */
 	;
+
+pipe_list:
+		pipe_list PIPE command_and_args
+		| command_and_args
+		;
 
 argument:
 	WORD {
@@ -92,8 +98,21 @@ iomodifier_opt:
 		printf("   Yacc: insert input \"%s\"\n", $2);
 		Command::_currentCommand._inputFile = $2;
 	}
+	| GREATAMPERSAND WORD{
+		printf("   Yacc: insert output \"%s\"\n", $2);
+		printf(" Yacc: setting background True\n");
+		Command::_currentCommand._outFile = $2;
+		Command::_currentCommand._background = 1;
+	}
 	| /* empty */ 
 	;
+
+background_optional:
+	AMPERSAND{
+		printf(" Yacc: setting background True\n");
+		Command::_currentCommand._background = 1;
+	}
+	|/* empty */
 %%
 
 #if 0

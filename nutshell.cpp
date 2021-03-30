@@ -6,8 +6,12 @@
 #include <sys/wait.h>
 #include <string.h>
 #include <signal.h>
+#include <typeinfo>
+#include <string>
+#include <fcntl.h>
 
 #include "command.h"
+using namespace std;
 
 SimpleCommand::SimpleCommand()
 {
@@ -101,9 +105,12 @@ Command::print()
 	printf("\n");
 	printf("  #   Simple Commands\n");
 	printf("  --- ----------------------------------------------------------\n");
+	printf("Number of Simple Commands: %d\n", _numberOfSimpleCommands);
+	
 	
 	for ( int i = 0; i < _numberOfSimpleCommands; i++ ) {
 		printf("  %-3d ", i );
+		printf("Number of arguments: %d\n", _simpleCommands[i]->_numberOfArguments);
 		for ( int j = 0; j < _simpleCommands[i]->_numberOfArguments; j++ ) {
 			printf("\"%s\" \t", _simpleCommands[i]->_arguments[ j ] );
 		}
@@ -128,19 +135,95 @@ Command::execute()
 		return;
 	}
 
-	// Print contents of Command data structure
-	print();
+	else {
+		// Print contents of Command data structure
+		print();
 
-	// Add execution here
-	// For every simple command fork a new process
-	// Setup i/o redirection
-	// and call exec
+		string someString(_simpleCommands[0]->_arguments[0]);
 
-	// Clear to prepare for next command
-	clear();
+		int tmpin = dup(0);
+		int tmpout = dup(1);
+
+		int fdin;
+		if (_inputFile) {
+			fdin = open(_inputFile, O_RDONLY);
+		}
+		else {
+			//use default input
+			fdin = dup(tmpin);
+		}
+
+		pid_t pid;
+		int fdout;
+		for (int i = 0; i < _numberOfSimpleCommands; i++) {
+			//redirect input
+			dup2(fdin, 0);
+			close(fdin);
+			//setup output
+			if (i == _numberOfSimpleCommands - 1) {
+				//last command
+				if (_outFile) {
+					fdout = open(_outFile, O_CREAT | O_WRONLY, 0777);
+				}
+				else {
+					//default output
+					fdout = dup(tmpout);
+				}
+			}
+
+			else {
+				//not last simple command
+				int fdpipe[2];
+				pipe(fdpipe);
+				fdout = fdpipe[1];
+				fdin = fdpipe[0];
+			}
+			//redirect output
+			dup2(fdout, 1);
+			close(fdout);
+
+			//create child process
+			int status;
+			pid = fork();
+			if (pid == 0) {
+				//execution code here
+				// REMOVE THIS CODE
+				execvp(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_arguments);
+				perror("execvp encountered an error");
+				_exit(1);
+				//search path for executable, error if not found
+
+			}
+			
+			//restore in/out states to default
+			dup2(tmpin, 0);
+			dup2(tmpout, 1);
+			close(tmpin);
+			close(tmpout);
+
+			if (!_background) {
+				waitpid(pid, &status, WUNTRACED);
+			}
+		}
+
+		/*if (_numberOfSimpleCommands == 1 && _simpleCommands[0]->_numberOfArguments == 1) {
+			printf("I want to exit the shell.\n");
+			string someString(_simpleCommands[0]->_arguments[0]);
+			printf("%s",someString.c_str());
+		}*/
+
+
+		// Add execution here
+		// For every simple command fork a new process
+		// Setup i/o redirection
+		// and call exec
+
+		// Clear to prepare for next command
+		clear();
+		// Print new prompt
+		
+	}
 	
-	// Print new prompt
-	prompt();
 }
 
 // Shell implementation
