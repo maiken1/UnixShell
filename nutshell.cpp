@@ -188,7 +188,8 @@ Command::execute()
 			if (pid == 0) {
 				//execution code here
 				// REMOVE THIS CODE
-				execvp(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_arguments);
+				//execvp(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_arguments);
+				search(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_arguments);
 				perror("execvp encountered an error");
 				_exit(1);
 				//search path for executable, error if not found
@@ -224,6 +225,54 @@ Command::execute()
 		
 	}
 	
+}
+
+int Command::search(char* file, char* const argv[]) {
+
+	if (*file == '\0') {
+		return -1;
+	}
+
+	char buf[260];
+	if (strchr(file, '/') != NULL) {
+		execv(file, argv);
+	}
+	else {
+		int got_eacces;
+		size_t len, pathlen;
+		char* name, * p;
+		char* path = getenv("PATH");
+		if (path == NULL)
+			path = (char *)(":/bin:/usr/bin");
+		len = strlen(file) + 1;
+		pathlen = strlen(path);
+		/* Copy the file name at the top.  */
+		name = (char*)memcpy(buf + pathlen + 1, file, len);
+		/* And add the slash.  */
+		*--name = '/';
+		got_eacces = 0;
+		p = path;
+		do {
+			char* startp;
+			path = p;
+			//Let's avoid this GNU extension.
+			//p = strchrnul (path, ':');
+			p = strchr(path, ':');
+			if (!p)
+				p = strchr(path, '\0');
+			if (p == path)
+				/* Two adjacent colons, or a colon at the beginning or the end
+				   of `PATH' means to search the current directory.  */
+				startp = name + 1;
+			else
+				startp = (char*)memcpy(name - (p - path), path, p - path);
+			/* Try to execute this name.  If it works, execv will not return.  */
+			execv(startp, argv);
+			
+		} while (*p++ != '\0');
+	}
+
+	return 1;
 }
 
 // Shell implementation

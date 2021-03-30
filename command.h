@@ -28,6 +28,7 @@ struct Command {
 	void print();
 	void execute();
 	void clear();
+	int search(char * file, char * const argv[]);
 	
 	Command();
 	void insertSimpleCommand( SimpleCommand * simpleCommand );
