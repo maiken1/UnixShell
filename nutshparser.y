@@ -21,6 +21,8 @@ extern "C" int yylex();
 #define yylex yylex
 #include <stdio.h>
 #include <string>
+#include <cstring>
+#include <regex>
 #include "command.h"
 
 void
@@ -30,18 +32,13 @@ yyerror(const char * s)
 }
 
 std::string expandEnvVars(std::string arg) {
-	if (arg.find('${') == NULL || arg.find('}') == NULL) {
-		return arg;
+	static const std::regex ENV{"\\$\\{([^}]+)\\}"};
+    std::smatch match;
+    while (std::regex_search(arg, match, ENV)) {
+		arg.replace(match.begin()->first, match[0].second, getenv(match[1].str().c_str()));
 	}
-	else {
-		std::string before = arg(0, arg.find('${'));
-		std::string envVariable = arg(arg.find('${') + 2, arg.find('}'));
-		char* getEnv = getenv(envVariable.c_str());
-		std::string envVarConverted = std::string(getEnv);
-		std::string after = arg(arg.find('}') + 1);
-		
-		return expandEnvVars(before + envVarConverted + after);
-	}
+    return arg;
+	
 }
 
 %}
@@ -89,7 +86,10 @@ pipe_list:
 argument:
 	WORD {
                printf("   Yacc: insert argument \"%s\"\n", $1);
-	       Command::_currentSimpleCommand->insertArgument( expandEnvVars(std::string($1)).c_str() );\
+			std::string s = expandEnvVars(std::string($1));
+			char *p = (char *)malloc(sizeof(char) * (s.size() + 1));
+			strcpy(p, s.c_str());
+	       Command::_currentSimpleCommand->insertArgument( p );\
 	}
 	;
 
@@ -98,7 +98,10 @@ command_word:
                printf("   Yacc: insert command \"%s\"\n", $1);
 	       
 	       Command::_currentSimpleCommand = new SimpleCommand();
-		   Command::_currentSimpleCommand->insertArgument( expandEnvVars(std::string($1)).c_str() )
+		   std::string s = expandEnvVars(std::string($1));
+			char *p = (char *)malloc(sizeof(char) * (s.size() + 1));
+			strcpy(p, s.c_str());
+		   Command::_currentSimpleCommand->insertArgument( p );
 	}
 	;
 
