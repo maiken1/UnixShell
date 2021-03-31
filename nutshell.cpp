@@ -16,7 +16,8 @@ using namespace std;
 
 int yyparse(void);
 extern char** environ;
-extern std::map aliases;
+
+std::map<string, string> aliases;
 
 SimpleCommand::SimpleCommand()
 {
@@ -224,15 +225,13 @@ Command::execute()
 			else if (builtinCheck == "alias") {
 				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 1, 3)) {
 					if (_simpleCommands[i]->_numberOfArguments == 3){
-						printf("%s\n", _simpleCommands[i]->_arguments[0]);
-						printf("%s\n", _simpleCommands[i]->_arguments[1]);
-						printf("%s\n", _simpleCommands[i]->_arguments[2]);
-						aliases.insert(std::make_pair(_simpleCommands[i]->_arguments[1], _simpleCommands[i]->_arguments[2]));
+						aliases.insert(std::make_pair(string(_simpleCommands[i]->_arguments[1]), string(_simpleCommands[i]->_arguments[2])));
 					}
 					else if (_simpleCommands[i]->_numberOfArguments == 1){
 						for(auto it = aliases.cbegin(); it != aliases.cend(); ++it)
 						{
-							printf("%s=%s\n", it->second, it->second );
+							string out = it->first + "=" + it->second;
+							printf("%s\n", out.c_str());
 						}
 					}
 					else {
@@ -242,7 +241,7 @@ Command::execute()
 			}
 			else if (builtinCheck == "unalias") {
 				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 2, 2)) {
-					aliases.erase(_simpleCommands[i]->_arguments[1]);
+					aliases.erase(string(_simpleCommands[i]->_arguments[1]));
 				}
 			}
 			else if (builtinCheck == "aliases") {

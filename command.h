@@ -2,7 +2,6 @@
 #pragma once
 // #include <vector>
 // std::vector<char *> alias_list;
-std::map<char*, char*> aliases;
 // Command Data Structure
 struct SimpleCommand {
 	// Available space for arguments currently preallocated
