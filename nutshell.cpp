@@ -214,6 +214,11 @@ Command::execute()
 					unsetenv(_simpleCommands[i]->_arguments[1]);
 				}
 			}
+			else if (builtinCheck == "cd") {
+				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 2, 2)) {
+					chdir(_simpleCommands[i]->_arguments[1]);
+				}
+			}
 			else {
 				//create child process
 				printf("forking\n");
