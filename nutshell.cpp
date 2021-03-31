@@ -16,6 +16,7 @@ using namespace std;
 
 int yyparse(void);
 extern char** environ;
+extern std::map aliases;
 
 SimpleCommand::SimpleCommand()
 {
@@ -172,7 +173,7 @@ Command::execute()
 				else {
 					//default output
 					fdout = dup(defaultout);
-					printf("I am the last command\n");
+					// printf("I am the last command\n");
 				}
 			}
 
@@ -221,21 +222,46 @@ Command::execute()
 				}
 			}
 			else if (builtinCheck == "alias") {
+				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 1, 3)) {
+					if (_simpleCommands[i]->_numberOfArguments == 3){
+						printf("%s\n", _simpleCommands[i]->_arguments[0]);
+						printf("%s\n", _simpleCommands[i]->_arguments[1]);
+						printf("%s\n", _simpleCommands[i]->_arguments[2]);
+						aliases.insert(std::make_pair(_simpleCommands[i]->_arguments[1], _simpleCommands[i]->_arguments[2]));
+					}
+					else if (_simpleCommands[i]->_numberOfArguments == 1){
+						for(auto it = aliases.cbegin(); it != aliases.cend(); ++it)
+						{
+							printf("%s=%s\n", it->second, it->second );
+						}
+					}
+					else {
+						printf("alias: Wrong number of arguments\n");
+					}
+				}
+			}
+			else if (builtinCheck == "unalias") {
 				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 2, 2)) {
-					aliases.insert(std::make_pair(_simpleCommands[i]->_arguments[1], _simpleCommands[i]->_arguments[2]));
+					aliases.erase(_simpleCommands[i]->_arguments[1]);
+				}
+			}
+			else if (builtinCheck == "aliases") {
+				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 2, 2)) {
+					aliases.erase(_simpleCommands[i]->_arguments[1]);
 				}
 			}
 			else {
 				//create child process
-				printf("forking\n");
+				// printf("forking\n");
 				pid = fork();
 				if (pid == 0) {
 					//execution code here
 					// REMOVE THIS CODE
 					//execvp(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_arguments);
-					printf("inside fork\n");
+					// printf("inside fork\n");
 					search(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_arguments);
-					perror("execvp encountered an error");
+					perror("search failed\n");
+					// perror("execvp encountered an error");
 					_exit(1);
 					//search path for executable, error if not found
 
@@ -247,7 +273,7 @@ Command::execute()
 			dup2(defaultout, 1);
 			close(defaultin);
 			close(defaultout);
-			printf("defaults restored\n");
+			// printf("defaults restored\n");
 
 			if (!_background) {
 				waitpid(pid, &status, WUNTRACED);
@@ -267,11 +293,11 @@ Command::execute()
 		// and call exec
 
 		// Clear to prepare for next command
-		printf("clearing command table\n");
+		// printf("clearing command table\n");
 		clear();
 		// Print new prompt
 
-		printf("printing prompt\n");
+		// printf("printing prompt\n");
 		prompt();
 		
 	}
