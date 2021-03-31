@@ -1,13 +1,8 @@
-<<<<<<< Updated upstream
-=======
 
 %option noyywrap
->>>>>>> Stashed changes
 %{
 #include "nutshparser.tab.h"
 #include <string.h>
-<<<<<<< Updated upstream
-=======
 #include "nutshparser.tab.h"
 
 
@@ -30,7 +25,6 @@ void my_cleanup(void) {
     // ... but avoid trying to free the same buffer twice
     my_string_buffer = NULL;
 }
->>>>>>> Stashed changes
 
 #ifdef DOESNT_HAVE_STRDUP
 #warning DOESNT_HAVE_STRDUP

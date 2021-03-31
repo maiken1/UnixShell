@@ -10,9 +10,6 @@ extern void yyerror (char const *s) {
 extern int yylex();
 int yyparse();
 
-<<<<<<< Updated upstream
-%}
-=======
 %{
 extern "C" int yylex();
 
@@ -30,16 +27,11 @@ yyerror(const char * s)
 {
 	fprintf(stderr,"%s", s);
 }
->>>>>>> Stashed changes
 
 %union {
        char *string;
 }
 
-<<<<<<< Updated upstream
-%token <string> WORD BYE SETENV
-%token NOTOKEN GREAT NEWLINE GREATGREAT PIPE AMPERSAND LESS GREATGREATAMPERSAND GREATAMPERSAND
-=======
 void expandWildCards(char * arg){
 	if(strchr(arg, '.') == NULL && strchr(arg, '.')){
 		Command::_currentSimpleCommand->insertArgument(arg);
@@ -104,7 +96,6 @@ void expandWildCards(char * arg){
 }
 
 %}
->>>>>>> Stashed changes
 
 
 %%
@@ -114,68 +105,6 @@ exit:
         | BYE NEWLINE{return BYE;}
         ;
 
-<<<<<<< Updated upstream
-setenv:
-        %empty
-        | SETENV WORD WORD NEWLINE{
-                printf('%s', $2);
-                printf('%s', $3);
-                return SETENV; }
-
-// objects:
-//         %empty
-//         | objects object { }
-//         ;
-
-// object:
-//         WORD {printf("input found");}
-//          ; 
-
-// goal:	
-// 	commands
-// 	;
-
-// commands: 
-// 	command
-// 	| commands command 
-// 	;
-
-// command: simple_command
-//         ;
-
-// simple_command:	
-// 	command_and_args iomodifier_opt NEWLINE {
-// 		printf("   Yacc: Execute command\n");
-// 		Command::_currentCommand.execute();
-// 	}
-// 	| NEWLINE 
-// 	| error NEWLINE { yyerrok; }
-// 	;
-
-// command_and_args:
-// 	command_word arg_list {
-// 		Command::_currentCommand.
-// 			insertSimpleCommand( Command::_currentSimpleCommand );
-// 	}
-// 	;
-
-// arg_list:
-// 	arg_list argument
-// 	| /* empty */
-// 	;
-
-// argument:
-// 	WORD {
-//                printf("   Yacc: insert argument \"%s\"\n", $1);
-
-// 	       Command::_currentSimpleCommand->insertArgument( $1 );\
-// 	}
-// 	;
-
-// command_word:
-// 	WORD {
-//                printf("   Yacc: insert command \"%s\"\n", $1);
-=======
 simple_command:	
 	pipe_list iomodifier_opt background_optional NEWLINE {
 		printf("   Yacc: Execute command\n");
@@ -219,7 +148,6 @@ argument:
 command_word:
 	WORD {
                printf("   Yacc: insert command \"%s\"\n", $1);
->>>>>>> Stashed changes
 	       
 // 	       Command::_currentSimpleCommand = new SimpleCommand();
 // 	       Command::_currentSimpleCommand->insertArgument( $1 );
