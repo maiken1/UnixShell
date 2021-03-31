@@ -279,46 +279,45 @@ int Command::CheckNumberOfArguments(char* command, int inputArguments, int min, 
 	return 1;
 }
 
-int Command::search(char* file, char* const argv[]) {
-
-	if (*file == '\0') {
-		return -1;
-	}
-
+int Command::search(char* cmd, char* const argv[]) {
 	char buf[260];
-	if (strchr(file, '/') != NULL) {
-		execv(file, argv);
-	}
+	// return an error is there is no cmd
+	if (*cmd == '\0') {
+		return -1;
+	} 
+	// skip the search and execute if the cmd has a path
+	else if (strchr(cmd, '/') != NULL) {
+		execv(cmd, argv);
+	} 
+	// search for the command and execute it
 	else {
-		int got_eacces;
 		size_t len, pathlen;
 		char* name, * p;
 		char* path = getenv("PATH");
+
+		// if no path is specified check in bin
 		if (path == NULL)
 			path = (char *)(":/bin:/usr/bin");
-		len = strlen(file) + 1;
-		pathlen = strlen(path);
-		/* Copy the file name at the top.  */
-		name = (char*)memcpy(buf + pathlen + 1, file, len);
-		/* And add the slash.  */
+
+		// make a copy of the command name and add a slash to the end
+		name = (char*)memcpy(buf + strlen(path) + 1, cmd, strlen(cmd) + 1);
 		*--name = '/';
-		got_eacces = 0;
+
 		p = path;
 		do {
 			char* startp;
 			path = p;
-			//Let's avoid this GNU extension.
-			//p = strchrnul (path, ':');
+
+			// check for any colons in the path
 			p = strchr(path, ':');
 			if (!p)
 				p = strchr(path, '\0');
 			if (p == path)
-				/* Two adjacent colons, or a colon at the beginning or the end
-				   of `PATH' means to search the current directory.  */
 				startp = name + 1;
 			else
 				startp = (char*)memcpy(name - (p - path), path, p - path);
-			/* Try to execute this name.  If it works, execv will not return.  */
+
+			// eccute when path is figured out
 			execv(startp, argv);
 			
 		} while (*p++ != '\0');
