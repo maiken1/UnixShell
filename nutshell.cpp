@@ -9,6 +9,7 @@
 #include <typeinfo>
 #include <string>
 #include <fcntl.h>
+#include <map>
 
 #include "command.h"
 using namespace std;
@@ -217,6 +218,11 @@ Command::execute()
 			else if (builtinCheck == "cd") {
 				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 2, 2)) {
 					chdir(_simpleCommands[i]->_arguments[1]);
+				}
+			}
+			else if (builtinCheck == "alias") {
+				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 2, 2)) {
+					aliases.insert(std::make_pair(_simpleCommands[i]->_arguments[1], _simpleCommands[i]->_arguments[2]));
 				}
 			}
 			else {
