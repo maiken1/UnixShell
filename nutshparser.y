@@ -8,9 +8,9 @@
  *
  */
 
-%token	<string_val> WORD
+%token	<string_val> WORD 
 
-%token 	NOTOKEN GREAT NEWLINE LESS GREATGREAT GREATGREATAMPERSAND AMPERSAND PIPE GREATAMPERSAND
+%token 	NOTOKEN GREAT NEWLINE LESS GREATGREAT GREATGREATAMPERSAND AMPERSAND PIPE GREATAMPERSAND UNALIAS
 
 %union	{
 		char   *string_val;
@@ -33,23 +33,39 @@ yyerror(const char * s)
 	fprintf(stderr,"%s", s);
 }
 
+int checkForENVS(std::string arg){
+	static const std::regex ENV{"\\$\\{([^}]+)\\}"};
+    std::smatch ENVMatch;
+	return std::regex_search(arg, ENVMatch, ENV);
+}
+
+int checkForAliases(std::string arg){
+	return aliases.find(arg) != aliases.end();
+}
 
 std::string expandEnvVars(std::string arg) {
 	static const std::regex ENV{"\\$\\{([^}]+)\\}"};
     std::smatch ENVMatch;
-	int ENVMatched = std::regex_search(arg, ENVMatch, ENV);
-	auto aliasMatched = aliases.find(arg);
-    while (ENVMatched || (aliasMatched != aliases.end())) {
-		if (ENVMatched){
-			arg.replace(ENVMatch.begin()->first, ENVMatch[0].second, getenv(ENVMatch[1].str().c_str()));
-		} 
-		ENVMatched = std::regex_search(arg, ENVMatch, ENV);
-		if (aliasMatched != aliases.end()){
-			arg = aliases[arg];
-		}
-		aliasMatched = aliases.find(arg);
+
+    while (std::regex_search(arg, ENVMatch, ENV)) {
+		arg.replace(ENVMatch.begin()->first, ENVMatch[0].second, getenv(ENVMatch[1].str().c_str()));
 	}
     return arg;
+}
+
+std::string expandAliases(std::string arg) {
+	while (checkForAliases(arg)) {
+		arg = aliases[arg];
+	}
+    return arg;
+}
+
+std::string processExpansions(std::string arg) {
+	while (checkForENVS(arg) || checkForAliases(arg)){
+		arg = expandEnvVars(arg);
+		arg = expandAliases(arg);
+	}
+	return arg;
 }
 
 %}
@@ -70,7 +86,7 @@ command: simple_command
         ;
 
 simple_command:	
-	pipe_list iomodifier_opt background_optional NEWLINE {
+	unalias pipe_list iomodifier_opt background_optional NEWLINE {
 		printf("   Yacc: Execute command\n");
 		Command::_currentCommand.execute();
 	}
@@ -94,10 +110,27 @@ pipe_list:
 		| command_and_args
 		;
 
+unalias:
+	UNALIAS WORD {
+		//command
+		Command::_currentSimpleCommand = new SimpleCommand();
+		std::string ss = "unalias";
+		char *pp = (char *)malloc(sizeof(char) * (ss.size() + 1));
+		strcpy(pp, ss.c_str());
+		Command::_currentSimpleCommand->insertArgument( pp );
+		//argument
+		std::string s = expandEnvVars(std::string($2));
+		char *p = (char *)malloc(sizeof(char) * (s.size() + 1));
+		strcpy(p, s.c_str());
+		Command::_currentSimpleCommand->insertArgument( p );\
+	}
+	| /* empty */
+	;
+
 argument:
 	WORD {
                printf("   Yacc: insert argument \"%s\"\n", $1);
-			std::string s = expandEnvVars(std::string($1));
+			std::string s = processExpansions(std::string($1));
 			char *p = (char *)malloc(sizeof(char) * (s.size() + 1));
 			strcpy(p, s.c_str());
 	       Command::_currentSimpleCommand->insertArgument( p );\
@@ -109,7 +142,7 @@ command_word:
                printf("   Yacc: insert command \"%s\"\n", $1);
 	       
 	       Command::_currentSimpleCommand = new SimpleCommand();
-		   std::string s = expandEnvVars(std::string($1));
+		   std::string s = processExpansions(std::string($1));
 			char *p = (char *)malloc(sizeof(char) * (s.size() + 1));
 			strcpy(p, s.c_str());
 		   Command::_currentSimpleCommand->insertArgument( p );

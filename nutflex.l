@@ -44,6 +44,10 @@
             return AMPERSAND;
         }
 
+"unalias" {
+            return UNALIAS;
+}
+
 [^ \t\n][^ \t\n]*   {
             yylval.string_val = strdup(yytext);
             return WORD;
