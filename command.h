@@ -1,5 +1,11 @@
 
 #pragma once
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <map>
+#include <string>
+
 // #include <vector>
 // std::vector<char *> alias_list;
 // Command Data Structure

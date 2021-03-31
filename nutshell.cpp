@@ -17,7 +17,7 @@ using namespace std;
 int yyparse(void);
 extern char** environ;
 
-std::map<string, string> aliases;
+std::map<std::string, std::string> aliases;
 
 SimpleCommand::SimpleCommand()
 {
@@ -244,11 +244,11 @@ Command::execute()
 					aliases.erase(string(_simpleCommands[i]->_arguments[1]));
 				}
 			}
-			else if (builtinCheck == "aliases") {
-				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 2, 2)) {
-					aliases.erase(_simpleCommands[i]->_arguments[1]);
-				}
-			}
+			// else if (builtinCheck == "aliases") {
+			// 	if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 2, 2)) {
+			// 		aliases.erase(_simpleCommands[i]->_arguments[1]);
+			// 	}
+			// }
 			else {
 				//create child process
 				// printf("forking\n");

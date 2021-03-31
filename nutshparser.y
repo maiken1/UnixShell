@@ -25,20 +25,31 @@ extern "C" int yylex();
 #include <regex>
 #include "command.h"
 
+extern std::map<std::string, std::string> aliases;
+
 void
 yyerror(const char * s)
 {
 	fprintf(stderr,"%s", s);
 }
 
+
 std::string expandEnvVars(std::string arg) {
 	static const std::regex ENV{"\\$\\{([^}]+)\\}"};
-    std::smatch match;
-    while (std::regex_search(arg, match, ENV)) {
-		arg.replace(match.begin()->first, match[0].second, getenv(match[1].str().c_str()));
+    std::smatch ENVMatch;
+	int ENVMatched = std::regex_search(arg, ENVMatch, ENV);
+	auto aliasMatched = aliases.find(arg);
+    while (ENVMatched || (aliasMatched != aliases.end())) {
+		if (ENVMatched){
+			arg.replace(ENVMatch.begin()->first, ENVMatch[0].second, getenv(ENVMatch[1].str().c_str()));
+		} 
+		ENVMatched = std::regex_search(arg, ENVMatch, ENV);
+		if (aliasMatched != aliases.end()){
+			arg = aliases[arg];
+		}
+		aliasMatched = aliases.find(arg);
 	}
     return arg;
-	
 }
 
 %}
