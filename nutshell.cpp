@@ -12,6 +12,7 @@
 #include <iostream>
 #include <iterator>
 #include "nutshparser.tab.h"
+#include <map>
 
 #include "command.h"
 using namespace std;
@@ -21,6 +22,9 @@ int yyparse();
 extern "C" int my_scan_string(const char* s);
 extern "C" void my_cleanup(void);
 
+extern char** environ;
+
+std::map<std::string, std::string> aliases;
 
 SimpleCommand::SimpleCommand()
 {
@@ -228,6 +232,38 @@ Command::execute()
 					unsetenv(_simpleCommands[i]->_arguments[1]);
 				}
 			}
+			else if (builtinCheck == "cd") {
+				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 2, 2)) {
+					chdir(_simpleCommands[i]->_arguments[1]);
+				}
+			}
+			else if (builtinCheck == "alias") {
+				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 1, 3)) {
+					if (_simpleCommands[i]->_numberOfArguments == 3){
+						aliases.insert(std::make_pair(string(_simpleCommands[i]->_arguments[1]), string(_simpleCommands[i]->_arguments[2])));
+					}
+					else if (_simpleCommands[i]->_numberOfArguments == 1){
+						for(auto it = aliases.cbegin(); it != aliases.cend(); ++it)
+						{
+							string out = it->first + "=" + it->second;
+							printf("%s\n", out.c_str());
+						}
+					}
+					else {
+						printf("alias: Wrong number of arguments\n");
+					}
+				}
+			}
+			else if (builtinCheck == "unalias") {
+				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 2, 2)) {
+					aliases.erase(string(_simpleCommands[i]->_arguments[1]));
+				}
+			}
+			// else if (builtinCheck == "aliases") {
+			// 	if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 2, 2)) {
+			// 		aliases.erase(_simpleCommands[i]->_arguments[1]);
+			// 	}
+			// }
 			else {
 				//create child process
 				printf("forking\n");
@@ -240,10 +276,6 @@ Command::execute()
 					printf("inside fork\n");
 					search(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_arguments);
 					perror("execvp encountered an error");
-					_exit(1);
-					//search path for executable, error if not found
-
-				}
 			}			
 		}
 		//restore in/out states to default
@@ -323,18 +355,17 @@ int Command::search(char* file, char* const argv[]) {
 		do {
 			char* startp;
 			path = p;
-			//Let's avoid this GNU extension.
-			//p = strchrnul (path, ':');
+
+			// check for any colons in the path
 			p = strchr(path, ':');
 			if (!p)
 				p = strchr(path, '\0');
 			if (p == path)
-				/* Two adjacent colons, or a colon at the beginning or the end
-				   of `PATH' means to search the current directory.  */
 				startp = name + 1;
 			else
 				startp = (char*)memcpy(name - (p - path), path, p - path);
-			/* Try to execute this name.  If it works, execv will not return.  */
+
+			// eccute when path is figured out
 			execv(startp, argv);
 			
 		} while (*p++ != '\0');

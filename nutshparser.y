@@ -1,7 +1,29 @@
-/* -*- indented-text -*- */
+
+/*
+ * This parser compiles the following grammar:
+ *
+ *	cmd [arg]* [> filename]
+ *
+ * 
+ *
+ */
+
+%token	<string_val> WORD 
+
+%token 	NOTOKEN GREAT NEWLINE LESS GREATGREAT GREATGREATAMPERSAND AMPERSAND PIPE GREATAMPERSAND UNALIAS
+
+%union	{
+		char   *string_val;
+	}
 
 %{
-#include "global.h"
+extern "C" int yylex();
+#define yylex yylex
+#include <stdio.h>
+#include <string>
+#include <cstring>
+#include <regex>
+#include "command.h"
 
 extern void yyerror (char const *s) {
    fprintf (stderr, "%s\n", s);
@@ -28,8 +50,14 @@ yyerror(const char * s)
 	fprintf(stderr,"%s", s);
 }
 
-%union {
-       char *string;
+int checkForENVS(std::string arg){
+	static const std::regex ENV{"\\$\\{([^}]+)\\}"};
+    std::smatch ENVMatch;
+	return std::regex_search(arg, ENVMatch, ENV);
+}
+
+int checkForAliases(std::string arg){
+	return aliases.find(arg) != aliases.end();
 }
 
 void expandWildCards(char * arg){
@@ -93,6 +121,29 @@ void expandWildCards(char * arg){
 		}
 	}
 	closedir(dir);
+std::string expandEnvVars(std::string arg) {
+	static const std::regex ENV{"\\$\\{([^}]+)\\}"};
+    std::smatch ENVMatch;
+
+    while (std::regex_search(arg, ENVMatch, ENV)) {
+		arg.replace(ENVMatch.begin()->first, ENVMatch[0].second, getenv(ENVMatch[1].str().c_str()));
+	}
+    return arg;
+}
+
+std::string expandAliases(std::string arg) {
+	while (checkForAliases(arg)) {
+		arg = aliases[arg];
+	}
+    return arg;
+}
+
+std::string processExpansions(std::string arg) {
+	while (checkForENVS(arg) || checkForAliases(arg)){
+		arg = expandEnvVars(arg);
+		arg = expandAliases(arg);
+	}
+	return arg;
 }
 
 %}
@@ -149,20 +200,45 @@ command_word:
 	WORD {
                printf("   Yacc: insert command \"%s\"\n", $1);
 	       
-// 	       Command::_currentSimpleCommand = new SimpleCommand();
-// 	       Command::_currentSimpleCommand->insertArgument( $1 );
-// 	}
-// 	;
+	       Command::_currentSimpleCommand = new SimpleCommand();
+		   std::string s = processExpansions(std::string($1));
+			char *p = (char *)malloc(sizeof(char) * (s.size() + 1));
+			strcpy(p, s.c_str());
+		   Command::_currentSimpleCommand->insertArgument( p );
+	}
+	;
 
-// iomodifier_opt:
-// 	GREAT WORD {
-// 		printf("   Yacc: insert output \"%s\"\n", $2);
-// 		Command::_currentCommand._outFile = $2;
-// 	}
-// 	| /* empty */ 
-// 	;
+iomodifier_opt:
+	GREAT WORD {
+		printf("   Yacc: insert output \"%s\"\n", $2);
+		Command::_currentCommand._outFile = $2;
+	}
+	|LESS WORD {
+		printf("   Yacc: insert input \"%s\"\n", $2);
+		Command::_currentCommand._inputFile = $2;
+	}
+	| GREATAMPERSAND WORD{
+		printf("   Yacc: insert output \"%s\"\n", $2);
+		printf(" Yacc: setting background True\n");
+		Command::_currentCommand._outFile = $2;
+		Command::_currentCommand._background = 1;
+	}
+	| /* empty */ 
+	;
+
+background_optional:
+	AMPERSAND{
+		printf(" Yacc: setting background True\n");
+		Command::_currentCommand._background = 1;
+	}
+	|/* empty */
 %%
 
-int yywrap() {
-        return 1;
+
+
+#if 0
+main()
+{
+	yyparse();
 }
+#endif

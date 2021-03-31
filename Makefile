@@ -1,6 +1,7 @@
-# Simple Makefile
 
-CC=/usr/bin/cc
+#Use GNU compiler
+cc = gcc -g
+CC = g++ -g
 
 all: nutshell lex.yy.o nutshparser.tab.o
 
@@ -12,8 +13,8 @@ nutshparser.tab.o: nutshparser.y
 	bison -d nutshparser.y
 	$(CC) -c nutshparser.tab.c
 
-nutshscanner:  lex.yy.c
-	$(CC) -c lex.yy.c -o nutshscanner.lex.o
+nutshell.o: nutshell.cpp
+	$(CC) -c nutshell.cpp
 
 nutshell: nutshparser.tab.o lex.yy.o nutshell.o
 	$(CC) -o nutshell lex.yy.o nutshparser.tab.o nutshell.o -ll
