@@ -29,6 +29,11 @@ void my_cleanup(void) {
 
 %%
 
+\".*\"  {
+            yylval.string_val = strdup(yytext);
+            return WORD;
+        }
+
 \n 	{
 		return NEWLINE;
 	}
