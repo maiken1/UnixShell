@@ -10,12 +10,17 @@
 #include <string>
 #include <fcntl.h>
 #include <map>
+#include <iostream>
 
 #include "command.h"
+#include "nutshparser.tab.h"
 using namespace std;
 
 int yyparse(void);
 extern char** environ;
+extern "C" int my_scan_string(const char* s);
+extern "C" void my_cleanup(void);
+
 
 std::map<std::string, std::string> aliases;
 
@@ -138,6 +143,11 @@ void
 Command::execute()
 {
 	// Don't do anything if there are no simple commands
+	/// <summary>
+	/// WHAT DO
+	/// </summary>
+	int status;
+	////////////////////
 	if ( _numberOfSimpleCommands == 0 ) {
 		prompt();
 		return;
@@ -192,7 +202,7 @@ Command::execute()
 			//may have to deal with this for backgrounds
 			int status;
 			string builtinCheck(_simpleCommands[i]->_arguments[0]);
-			
+
 			if (builtinCheck == "bye") {
 				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 1, 1)) {
 					printf("I want to exit\n");
@@ -224,11 +234,11 @@ Command::execute()
 			}
 			else if (builtinCheck == "alias") {
 				if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 1, 3)) {
-					if (_simpleCommands[i]->_numberOfArguments == 3){
+					if (_simpleCommands[i]->_numberOfArguments == 3) {
 						aliases.insert(std::make_pair(string(_simpleCommands[i]->_arguments[1]), string(_simpleCommands[i]->_arguments[2])));
 					}
-					else if (_simpleCommands[i]->_numberOfArguments == 1){
-						for(auto it = aliases.cbegin(); it != aliases.cend(); ++it)
+					else if (_simpleCommands[i]->_numberOfArguments == 1) {
+						for (auto it = aliases.cbegin(); it != aliases.cend(); ++it)
 						{
 							string out = it->first + "=" + it->second;
 							printf("%s\n", out.c_str());
@@ -266,18 +276,18 @@ Command::execute()
 
 				}
 			}
-			
-			//restore in/out states to default
-			dup2(defaultin, 0);
-			dup2(defaultout, 1);
-			close(defaultin);
-			close(defaultout);
-			// printf("defaults restored\n");
-
-			if (!_background) {
-				waitpid(pid, &status, WUNTRACED);
-			}
 		}
+			
+	//restore in/out states to default
+	dup2(defaultin, 0);
+	dup2(defaultout, 1);
+	close(defaultin);
+	close(defaultout);
+	// printf("defaults restored\n");
+
+	if (!_background) {
+		waitpid(pid, &status, WUNTRACED);
+	}
 
 		/*if (_numberOfSimpleCommands == 1 && _simpleCommands[0]->_numberOfArguments == 1) {
 			printf("I want to exit the shell.\n");
@@ -296,8 +306,6 @@ Command::execute()
 		clear();
 		// Print new prompt
 
-		// printf("printing prompt\n");
-		prompt();
 		
 	}
 	
@@ -375,11 +383,40 @@ Command Command::_currentCommand;
 SimpleCommand * Command::_currentSimpleCommand;
 
 
+int GetCommand();
+
+
+
 int main()
 {
 	Command::_currentCommand.prompt();
-	yyparse();
-	
+	while (1) {
+
+		GetCommand();
+	}
+
 	return 0;
+}
+
+int GetCommand() {
+	string command;
+	//char eatnewline;
+	std::cin.clear();
+	if (getline(std::cin, command)) {
+		command = command + "\n";
+		cout << command << endl;
+
+		printf("\n%s\n", command.c_str());
+		if (my_scan_string(command.c_str()) != 0) {
+			printf("error in internal buffer\n");
+			exit(1);
+		}
+		yyparse();
+		my_cleanup();
+		Command::_currentCommand.prompt();
+	}
+	std::cin.clear();
+
+	return 1;
 }
 

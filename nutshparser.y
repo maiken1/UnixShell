@@ -10,7 +10,7 @@
 
 %token	<string_val> WORD 
 
-%token 	NOTOKEN GREAT NEWLINE LESS GREATGREAT GREATGREATAMPERSAND AMPERSAND PIPE GREATAMPERSAND UNALIAS
+%token 	NOTOKEN GREAT NEWLINE LESS GREATGREAT GREATGREATAMPERSAND AMPERSAND PIPE GREATAMPERSAND
 
 %union	{
 		char   *string_val;
@@ -86,7 +86,7 @@ command: simple_command
         ;
 
 simple_command:	
-	unalias pipe_list iomodifier_opt background_optional NEWLINE {
+	pipe_list iomodifier_opt background_optional NEWLINE {
 		printf("   Yacc: Execute command\n");
 		Command::_currentCommand.execute();
 	}
@@ -106,25 +106,8 @@ arg_list:
 	;
 
 pipe_list:
-		pipe_list PIPE command_and_args
-		| command_and_args
-		;
-
-unalias:
-	UNALIAS WORD {
-		//command
-		Command::_currentSimpleCommand = new SimpleCommand();
-		std::string ss = "unalias";
-		char *pp = (char *)malloc(sizeof(char) * (ss.size() + 1));
-		strcpy(pp, ss.c_str());
-		Command::_currentSimpleCommand->insertArgument( pp );
-		//argument
-		std::string s = expandEnvVars(std::string($2));
-		char *p = (char *)malloc(sizeof(char) * (s.size() + 1));
-		strcpy(p, s.c_str());
-		Command::_currentSimpleCommand->insertArgument( p );\
-	}
-	| /* empty */
+	pipe_list PIPE command_and_args
+	| command_and_args
 	;
 
 argument:
@@ -133,7 +116,7 @@ argument:
 			std::string s = processExpansions(std::string($1));
 			char *p = (char *)malloc(sizeof(char) * (s.size() + 1));
 			strcpy(p, s.c_str());
-	       Command::_currentSimpleCommand->insertArgument( p );\
+	       Command::_currentSimpleCommand->insertArgument( $1 );\
 	}
 	;
 
@@ -145,7 +128,7 @@ command_word:
 		   std::string s = processExpansions(std::string($1));
 			char *p = (char *)malloc(sizeof(char) * (s.size() + 1));
 			strcpy(p, s.c_str());
-		   Command::_currentSimpleCommand->insertArgument( p );
+		   Command::_currentSimpleCommand->insertArgument( $1 );
 	}
 	;
 
