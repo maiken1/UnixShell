@@ -17,55 +17,67 @@
 	}
 
 %{
-extern "C" int yylex();
+extern "C" 
+int yylex();
+
 #define yylex yylex
+
 #include <stdio.h>
+
 #include <string>
+
 #include <cstring>
+
 #include <regex>
+
 #include "command.h"
 
-extern std::map<std::string, std::string> aliases;
+extern std::map < std::string, std::string > aliases;
 
 void
-yyerror(const char * s)
-{
-	fprintf(stderr,"%s", s);
+yyerror(const char * s) {
+  fprintf(stderr, "%s", s);
 }
 
-int checkForENVS(std::string arg){
-	static const std::regex ENV{"\\$\\{([^}]+)\\}"};
-    std::smatch ENVMatch;
-	return std::regex_search(arg, ENVMatch, ENV);
+int checkForENVS(std::string arg) {
+  static
+  const std::regex ENV {
+    "\\$\\{([^}]+)\\}"
+  };
+  std::smatch ENVMatch;
+  return std::regex_search(arg, ENVMatch, ENV);
 }
 
-int checkForAliases(std::string arg){
-	return aliases.find(arg) != aliases.end();
+int checkForAliases(std::string arg) {
+  return aliases.find(arg) != aliases.end();
 }
 
 std::string expandEnvVars(std::string arg) {
-	static const std::regex ENV{"\\$\\{([^}]+)\\}"};
-    std::smatch ENVMatch;
+  static
+  const std::regex ENV {
+    "\\$\\{([^}]+)\\}"
+  };
+  std::smatch ENVMatch;
 
-    while (std::regex_search(arg, ENVMatch, ENV)) {
-		arg.replace(ENVMatch.begin()->first, ENVMatch[0].second, getenv(ENVMatch[1].str().c_str()));
-	}
-    return arg;
+  while (std::regex_search(arg, ENVMatch, ENV)) {
+    arg.replace(ENVMatch.begin() -> first, ENVMatch[0].second, getenv(ENVMatch[1].str().c_str()));
+  }
+  return arg;
 }
 
 std::string expandAliases(std::string arg) {
-	while (checkForAliases(arg)) {
-		arg = aliases[arg];
-	}
-    return arg;
+  while (checkForAliases(arg)) {
+    arg = aliases[arg];
+  }
+  return arg;
 }
 
 std::string processExpansions(std::string arg) {
-	while (checkForENVS(arg) || checkForAliases(arg)){
-		arg = expandEnvVars(arg);
-		arg = expandAliases(arg);
-	}
-	return arg;
+  while (checkForENVS(arg) || checkForAliases(arg)) {
+    arg = expandEnvVars(arg);
+    arg = expandAliases(arg);
+  }
+  return arg;
 }
 
 %}
