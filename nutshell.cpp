@@ -239,8 +239,10 @@ Command::execute() {
           unsetenv(_simpleCommands[i] -> _arguments[1]);
         }
       } else if (builtinCheck == "cd") {
-        if (CheckNumberOfArguments(_simpleCommands[i] -> _arguments[0], _simpleCommands[i] -> _numberOfArguments, 2, 2)) {
-          chdir(_simpleCommands[i] -> _arguments[1]);
+        if (CheckNumberOfArguments(_simpleCommands[i] -> _arguments[0], _simpleCommands[i] -> _numberOfArguments, 1, 2)) {
+            if (_simpleCommands[i]->_numberOfArguments == 1) { chdir(getenv("HOME")); }
+            else{ chdir(_simpleCommands[i]->_arguments[1]); }
+          
         }
       } else if (builtinCheck == "alias") {
         if (CheckNumberOfArguments(_simpleCommands[i] -> _arguments[0], _simpleCommands[i] -> _numberOfArguments, 1, 3)) {
@@ -380,7 +382,9 @@ int Command::search(char * cmd, char *
 
 void
 Command::prompt() {
-  printf("myshell>");
+  char* wd = get_current_dir_name();
+  printf("nutshell:%s$  ", wd);
+  free(wd);
   fflush(stdout);
 }
 
