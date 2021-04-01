@@ -30,7 +30,10 @@ void my_cleanup(void) {
 %%
 
 \".*\"  {
-            yylval.string_val = strdup(yytext);
+            yylval.string_val = calloc(strlen(yytext)-1, sizeof(char));
+            strncpy(yylval.string_val, &yytext[1], strlen(yytext-2));
+            // set NULL terminator
+            yylval.string_val[strlen(yylval.string_val) - 1] = '\0';
             return WORD;
         }
 
