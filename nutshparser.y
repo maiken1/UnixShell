@@ -226,7 +226,20 @@ iomodifier_opt:
 		printf("   Yacc: insert output \"%s\"\n", $2);
 		printf(" Yacc: setting background True\n");
 		Command::_currentCommand._outFile = $2;
+		Command::_currentCommand._append = 1;
+	}
+	| GREATGREAT WORD{
+		printf("   Yacc: insert output \"%s\"\n", $2);
+		printf(" Yacc: setting output Append\n");
+		Command::_currentCommand._outFile = $2;
+		Command::_currentCommand._append = 1;
+	}
+	| GREATGREATAMPERSAND WORD{
+		printf("   Yacc: insert output \"%s\"\n", $2);
+		printf(" Yacc: setting background True\n");
+		Command::_currentCommand._outFile = $2;
 		Command::_currentCommand._background = 1;
+		Command::_currentCommand._append = 1;
 	}
 	| /* empty */ 
 	;

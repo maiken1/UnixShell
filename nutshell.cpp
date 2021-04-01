@@ -179,7 +179,14 @@ Command::execute() {
       if (_simpleCommands[i] == _simpleCommands[_numberOfSimpleCommands - 1]) {
         //last command
         if (_outFile) {
-          fdout = open(_outFile, O_CREAT | O_WRONLY, 0777);
+            if (!_append) {
+                printf("not appending\n");
+                fdout = open(_outFile, O_CREAT | O_WRONLY, 0777);
+            }
+            else {
+                printf("appending\n");
+                fdout = open(_outFile, O_WRONLY | O_APPEND, 0777);
+            }
         } else {
           //default output
           fdout = dup(defaultout);
