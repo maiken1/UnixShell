@@ -10,7 +10,7 @@
 
 %token	<string_val> WORD 
 
-%token 	NOTOKEN GREAT NEWLINE LESS GREATGREAT GREATGREATAMPERSAND AMPERSAND PIPE GREATAMPERSAND
+%token 	NOTOKEN GREAT NEWLINE LESS GREATGREAT GREATGREATAMPERSAND AMPERSAND PIPE GREATAMPERSAND ERROROUTPUT
 
 %union	{
 		char   *string_val;
@@ -170,7 +170,7 @@ command: simple_command
         ;
 
 simple_command:	
-	pipe_list iomodifier_opt background_optional NEWLINE {
+	pipe_list io_modifier_list background_optional NEWLINE {
 		printf("   Yacc: Execute command\n");
 		Command::_currentCommand.execute();
 	}
@@ -203,13 +203,9 @@ argument:
 
 command_word:
 	WORD {
-               printf("   Yacc: insert command \"%s\"\n", $1);
-	       
-	       Command::_currentSimpleCommand = new SimpleCommand();
-		   std::string s = processExpansions(std::string($1));
-			char *p = (char *)malloc(sizeof(char) * (s.size() + 1));
-			strcpy(p, s.c_str());
-		   Command::_currentSimpleCommand->insertArgument( $1 );
+        	printf("   Yacc: insert command \"%s\"\n", $1);
+	    	Command::_currentSimpleCommand = new SimpleCommand();
+			Command::_currentSimpleCommand->insertArgument( $1 );
 	}
 	;
 
@@ -222,10 +218,10 @@ iomodifier_opt:
 		printf("   Yacc: insert input \"%s\"\n", $2);
 		Command::_currentCommand._inputFile = $2;
 	}
-	| GREATAMPERSAND WORD{
-		printf("   Yacc: insert output \"%s\"\n", $2);
+	| GREATAMPERSAND{
+		printf("   Yacc: insert output \"%s\"\n", Command::_currentCommand._outFile);
 		printf(" Yacc: setting background True\n");
-		Command::_currentCommand._outFile = $2;
+		Command::_currentCommand._errFile = Command::_currentCommand._outFile;
 		Command::_currentCommand._append = 1;
 	}
 	| GREATGREAT WORD{
@@ -234,14 +230,11 @@ iomodifier_opt:
 		Command::_currentCommand._outFile = $2;
 		Command::_currentCommand._append = 1;
 	}
-	| GREATGREATAMPERSAND WORD{
-		printf("   Yacc: insert output \"%s\"\n", $2);
-		printf(" Yacc: setting background True\n");
-		Command::_currentCommand._outFile = $2;
-		Command::_currentCommand._background = 1;
-		Command::_currentCommand._append = 1;
-	}
-	| /* empty */ 
+	;
+
+io_modifier_list:
+	io_modifier_list iomodifier_opt
+	| /*empty*/
 	;
 
 background_optional:
@@ -250,6 +243,7 @@ background_optional:
 		Command::_currentCommand._background = 1;
 	}
 	|/* empty */
+	;
 %%
 
 

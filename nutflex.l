@@ -54,8 +54,12 @@ void my_cleanup(void) {
             return GREATGREAT;
         }
 
-">&"    {
+"2>&1"    {
             return GREATAMPERSAND;
+        }
+
+"2>"    {
+            return ERROROUTPUT;
         }
 
 ">>&"    {
