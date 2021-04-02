@@ -22,6 +22,10 @@
 
 #include <iostream>
 
+#include <regex>
+
+#include <regex.h>
+
 #include "command.h"
 
 #include "nutshparser.tab.h"
@@ -36,6 +40,49 @@ extern "C"
 void my_cleanup(void);
 
 std::map < std::string, std::string > aliases;
+
+int checkForENVS(std::string& arg) {
+    static
+        const std::regex ENV{
+          "\\$\\{([^}]+)\\}"
+    };
+    std::smatch ENVMatch;
+    return std::regex_search(arg, ENVMatch, ENV);
+}
+
+int checkForAliases(std::string& arg) {
+    return aliases.find(arg) != aliases.end();
+}
+
+std::string expandEnvVars(std::string& arg) {
+    static
+        const std::regex ENV{
+          "\\$\\{([^}]+)\\}"
+    };
+    std::smatch ENVMatch;
+
+    while (std::regex_search(arg, ENVMatch, ENV)) {
+        printf("envvar match found\n");
+        arg.replace(ENVMatch.begin()->first, ENVMatch[0].second, getenv(ENVMatch[1].str().c_str()));
+    }
+    return arg;
+}
+
+std::string expandAliases(std::string& arg) {
+    while (checkForAliases(arg)) {
+        arg = aliases[arg];
+    }
+    return arg;
+}
+
+std::string processExpansions(std::string& arg) {
+    
+    while (checkForENVS(arg) || checkForAliases(arg)) {
+        arg = expandEnvVars(arg);
+        arg = expandAliases(arg);
+    }
+    return arg;
+}
 
 SimpleCommand::SimpleCommand() {
   // Creat available space for 5 arguments
@@ -409,15 +456,18 @@ int GetCommand() {
   std::cin.clear();
   if (getline(std::cin, command)) {
     command = command + "\n";
+    if (command.substr(command.find_first_not_of(" "), command.find(" ")) != "unalias") {
+        processExpansions(command);
+    }
     cout << command << endl;
-
-    printf("\n%s\n", command.c_str());
     if (my_scan_string(command.c_str()) != 0) {
       printf("error in internal buffer\n");
-      exit(1);
+      my_cleanup();
     }
-    yyparse();
-    my_cleanup();
+    else {
+        yyparse();
+        my_cleanup();
+    }
     Command::_currentCommand.prompt();
   }
   std::cin.clear();
