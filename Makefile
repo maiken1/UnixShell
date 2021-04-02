@@ -22,3 +22,5 @@ nutshell: nutshparser.tab.o lex.yy.o nutshell.o
 clean:
 	rm -f lex.yy.c nutshparser.tab.c nutshparser.tab.h nutshell *.o
 
+# clean:
+# 	rm -f nutshell nutshell.o nutshscanner.lex.o nutshparser.y.o nutshparser.tab.c nutshparser.tab.h lex.yy.c y.tab.c y.tab.h

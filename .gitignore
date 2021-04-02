@@ -1,6 +1,5 @@
 *.o
-*.exe
-*.tab.?
-lex.*
+*.tab.*
+lex.yy.c
 nutshell
 *.txt
