@@ -2,3 +2,4 @@
 *.tab.*
 lex.yy.c
 nutshell
+*.txt

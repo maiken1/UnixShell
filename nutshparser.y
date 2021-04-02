@@ -10,58 +10,33 @@
 
 %token	<string_val> WORD 
 
-%token 	NOTOKEN GREAT NEWLINE LESS GREATGREAT GREATGREATAMPERSAND AMPERSAND PIPE GREATAMPERSAND UNALIAS
+%token 	NOTOKEN GREAT NEWLINE LESS GREATGREAT GREATGREATAMPERSAND AMPERSAND PIPE GREATAMPERSAND ERROROUTPUT
 
 %union	{
 		char   *string_val;
 	}
 
 %{
-extern "C" int yylex();
+extern "C" 
+int yylex();
+
 #define yylex yylex
+
 #include <stdio.h>
+
 #include <string>
+
 #include <cstring>
+
 #include <regex>
-#include "command.h"
-
-extern void yyerror (char const *s) {
-   fprintf (stderr, "%s\n", s);
- };
-
-extern int yylex();
-int yyparse();
-
-%{
-extern "C" int yylex();
-
-#define yylex yylex
-#include <stdio.h>
-#include <string>
-#include <cstring>
 #include <regex.h>
-#include <regex>
+#include <unistd.h>
 #include <dirent.h>
 #include "command.h"
 
-void
-yyerror(const char * s)
-{
-	fprintf(stderr,"%s", s);
-}
-
-int checkForENVS(std::string arg){
-	static const std::regex ENV{"\\$\\{([^}]+)\\}"};
-    std::smatch ENVMatch;
-	return std::regex_search(arg, ENVMatch, ENV);
-}
-
-int checkForAliases(std::string arg){
-	return aliases.find(arg) != aliases.end();
-}
 
 void expandWildCards(char * arg){
-	if(strchr(arg, '.') == NULL && strchr(arg, '.')){
+	if(strchr(arg, '*') == NULL && strchr(arg, '?') == NULL){
 		Command::_currentSimpleCommand->insertArgument(arg);
 		return;
 	}
@@ -74,7 +49,7 @@ void expandWildCards(char * arg){
 	char * a = arg;
 	char * r = reg;
 	*r = '^';
-	r++; //get the start of the command
+	r++; //get the beginning of the line
 	while(*a) {
 		if (*a == '*'){
 			*r='.'; 
@@ -109,6 +84,9 @@ void expandWildCards(char * arg){
 		return;
 	}
 
+//	List directory and add as arguments the entries
+// that match the regular expression
+
 	DIR * dir = opendir(".");
 	if (dir == NULL){
 		perror("oopendir");
@@ -116,34 +94,18 @@ void expandWildCards(char * arg){
 	}
 	struct dirent * ent;
 	while((ent = readdir(dir)) != NULL){
+		//check if name is a match
 		if(regexec(&regex, ent->d_name, 0, NULL, 0) == 0){
+			//add argument if name matches
 			Command::_currentSimpleCommand->insertArgument(strdup(ent->d_name));
 		}
 	}
 	closedir(dir);
-std::string expandEnvVars(std::string arg) {
-	static const std::regex ENV{"\\$\\{([^}]+)\\}"};
-    std::smatch ENVMatch;
-
-    while (std::regex_search(arg, ENVMatch, ENV)) {
-		arg.replace(ENVMatch.begin()->first, ENVMatch[0].second, getenv(ENVMatch[1].str().c_str()));
-	}
-    return arg;
 }
 
-std::string expandAliases(std::string arg) {
-	while (checkForAliases(arg)) {
-		arg = aliases[arg];
-	}
-    return arg;
-}
-
-std::string processExpansions(std::string arg) {
-	while (checkForENVS(arg) || checkForAliases(arg)){
-		arg = expandEnvVars(arg);
-		arg = expandAliases(arg);
-	}
-	return arg;
+void
+yyerror(const char * s) {
+  fprintf(stderr, "%s", s);
 }
 
 %}
@@ -151,23 +113,25 @@ std::string processExpansions(std::string arg) {
 
 %%
 
-exit:
-        %empty
-        | BYE NEWLINE{return BYE;}
+goal:	
+	commands
+	;
+
+commands: 
+	command
+	| commands command 
+	;
+
+command: simple_command
         ;
 
 simple_command:	
-	pipe_list iomodifier_opt background_optional NEWLINE {
+	pipe_list io_modifier_list background_optional NEWLINE {
 		printf("   Yacc: Execute command\n");
 		Command::_currentCommand.execute();
 	}
-	| NEWLINE {
-		Command::_currentCommand.execute();
-		return 0;
-		}
-	| error NEWLINE { 
-		printf("There was a yyerror\n");
-		yyerrok; }
+	| NEWLINE {Command::_currentCommand.execute();}
+	| error NEWLINE { yyerrok; }
 	;
 
 command_and_args:
@@ -182,29 +146,22 @@ arg_list:
 	;
 
 pipe_list:
-		pipe_list PIPE command_and_args
-		| command_and_args
-		;
+	pipe_list PIPE command_and_args
+	| command_and_args
+	;
 
 argument:
 	WORD {
-               printf("   Yacc: insert argument \"%s\"\n", $1);
-			std::string s = expandEnvVars(std::string($1));
-			char *p = (char *)malloc(sizeof(char) * (s.size() + 1));
-			strcpy(p, s.c_str());
-	       Command::_currentSimpleCommand->insertArgument( p );\
+            printf("   Yacc: insert argument \"%s\"\n", $1);
+			expandWildCards($1);
 	}
 	;
 
 command_word:
 	WORD {
-               printf("   Yacc: insert command \"%s\"\n", $1);
-	       
-	       Command::_currentSimpleCommand = new SimpleCommand();
-		   std::string s = processExpansions(std::string($1));
-			char *p = (char *)malloc(sizeof(char) * (s.size() + 1));
-			strcpy(p, s.c_str());
-		   Command::_currentSimpleCommand->insertArgument( p );
+        	printf("   Yacc: insert command \"%s\"\n", $1);
+	    	Command::_currentSimpleCommand = new SimpleCommand();
+			Command::_currentSimpleCommand->insertArgument( $1 );
 	}
 	;
 
@@ -217,13 +174,23 @@ iomodifier_opt:
 		printf("   Yacc: insert input \"%s\"\n", $2);
 		Command::_currentCommand._inputFile = $2;
 	}
-	| GREATAMPERSAND WORD{
-		printf("   Yacc: insert output \"%s\"\n", $2);
+	| GREATAMPERSAND{
+		printf("   Yacc: insert output \"%s\"\n", Command::_currentCommand._outFile);
 		printf(" Yacc: setting background True\n");
-		Command::_currentCommand._outFile = $2;
-		Command::_currentCommand._background = 1;
+		Command::_currentCommand._errFile = Command::_currentCommand._outFile;
+		Command::_currentCommand._append = 1;
 	}
-	| /* empty */ 
+	| GREATGREAT WORD{
+		printf("   Yacc: insert output \"%s\"\n", $2);
+		printf(" Yacc: setting output Append\n");
+		Command::_currentCommand._outFile = $2;
+		Command::_currentCommand._append = 1;
+	}
+	;
+
+io_modifier_list:
+	io_modifier_list iomodifier_opt
+	| /*empty*/
 	;
 
 background_optional:
@@ -232,6 +199,7 @@ background_optional:
 		Command::_currentCommand._background = 1;
 	}
 	|/* empty */
+	;
 %%
 
 

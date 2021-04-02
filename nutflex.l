@@ -1,7 +1,6 @@
-
 %option noyywrap
 %{
-#include "nutshparser.tab.h"
+
 #include <string.h>
 #include "nutshparser.tab.h"
 
@@ -20,32 +19,35 @@ int my_scan_string(const char *s) {
 
 void my_cleanup(void) {
     // No effect if my_string_buffer is NULL
-    printf("cleaning up buffer");
+    printf("cleaning up buffer\n");
     yy_delete_buffer(my_string_buffer);
     // ... but avoid trying to free the same buffer twice
     my_string_buffer = NULL;
 }
 
-#ifdef DOESNT_HAVE_STRDUP
-#warning DOESNT_HAVE_STRDUP
-char *strdup(const char *s);
-#endif
 %}
 
-%% 
+%%
 
-
-\n      {
-            return NEWLINE;
+\".*\"  {
+            yylval.string_val = calloc(strlen(yytext)-1, sizeof(char));
+            strncpy(yylval.string_val, &yytext[1], strlen(yytext-2));
+            // set NULL terminator
+            yylval.string_val[strlen(yylval.string_val) - 1] = '\0';
+            return WORD;
         }
 
-[ \t]   {
-            /* Discard spaces and tabs */
-        }
+\n 	{
+		return NEWLINE;
+	}
 
-">"     {
-            return GREAT;
-        }
+[ \t] 	{
+		/* Discard Spaces and Tabs */
+     	}	
+
+">" 	{
+		return GREAT;
+		}
 
 "<"     {
             return LESS;
@@ -55,15 +57,19 @@ char *strdup(const char *s);
             return GREATGREAT;
         }
 
-">&"    {
+"2>&1"    {
             return GREATAMPERSAND;
+        }
+
+"2>"    {
+            return ERROROUTPUT;
         }
 
 ">>&"    {
             return GREATGREATAMPERSAND;
         }
 
-"|"     {
+"| "     {
             return PIPE;
         }
 
@@ -71,21 +77,16 @@ char *strdup(const char *s);
             return AMPERSAND;
         }
 
-"bye"   {
-            return BYE;
-        }
-"setenv"    {
-                return SETENV;
-        }
 
-[a-zA-Z][a-zA-Z0-9]*   {
-            yylval.string = strdup(yytext);
+[^ \t\n][^ \t\n]*   {
+            yylval.string_val = strdup(yytext);
             return WORD;
         }
 
-.       {
-            /* Add Tokens Above Here */
-            /*Invalid Character in input */
-            return NOTOKEN;
-        }
+.	{
+		/* Invalid character in input */
+		return NOTOKEN;
+	}
+
 %%
+	
