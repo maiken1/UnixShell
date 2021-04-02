@@ -1,12 +1,4 @@
 
-/*
- * This parser compiles the following grammar:
- *
- *	cmd [arg]* [> filename]
- *
- * 
- *
- */
 
 %token	<string_val> WORD 
 

@@ -216,7 +216,7 @@ Command::execute() {
 
     int defaultin = dup(0);
     int defaultout = dup(1);
-    int defaulterror = dup(2);
+    int defaulterr = dup(2);
 
     int fdin;
     if (_inputFile) {
@@ -229,6 +229,20 @@ Command::execute() {
     pid_t pid;
     int fdout;
     int fderr;
+
+    if (_errFile) {
+        if (!_append) {
+            fderr = open(_outFile, O_CREAT | O_WRONLY, 0777);
+        }
+        else {
+            fderr = open(_outFile, O_WRONLY | O_APPEND, 0777);
+        }
+    }
+    else {
+        fderr = dup(defaulterr);
+    }
+    dup2(fderr, 2);
+    close(fderr);
     for (int i = 0; i < _numberOfSimpleCommands; i++) {
       //redirect input
       dup2(fdin, 0);
@@ -248,21 +262,8 @@ Command::execute() {
           fdout = dup(defaultout);
           // printf("I am the last command\n");
         }
-        if (_errFile) {
-            if (!_append) {
-                fderr = open(_outFile, O_CREAT | O_WRONLY, 0777);
-            }
-            else {
-                fderr = open(_outFile, O_WRONLY | O_APPEND, 0777);
-            }
-        }
-        else {
-            //default error
-            fderr = dup(defaulterror);
-        }
       } else {
-        //not last simple command
-        printf("creating pipes\n");
+        //not last command
         int fdpipe[2];
         pipe(fdpipe);
         fdout = fdpipe[1];
@@ -270,9 +271,9 @@ Command::execute() {
       }
       //redirect output
       dup2(fdout, 1);
-      dup2(fderr, 2);
+      //dup2(fderr, 2);
       close(fdout);
-      close(fderr);
+      //close(fderr);
       //may have to deal with this for backgrounds
       int status;
       string builtinCheck(_simpleCommands[i] -> _arguments[0]);
@@ -348,10 +349,10 @@ Command::execute() {
     //restore in/out states to default
     dup2(defaultin, 0);
     dup2(defaultout, 1);
-    dup2(defaulterror, 2);
+    dup2(defaulterr, 2);
     close(defaultin);
     close(defaultout);
-    close(defaulterror);
+    close(defaulterr);
     // printf("defaults restored\n");
 
     if (!_background) {
