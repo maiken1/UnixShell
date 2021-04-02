@@ -40,8 +40,9 @@ extern "C"
 void my_cleanup(void);
 
 std::map < std::string, std::string > aliases;
+std::map < std::string, int > visited;
 
-int checkForENVS(std::string& arg) {
+int checkForENVS(std::string arg) {
     static
         const std::regex ENV{
           "\\$\\{([^}]+)\\}"
@@ -50,8 +51,13 @@ int checkForENVS(std::string& arg) {
     return std::regex_search(arg, ENVMatch, ENV);
 }
 
-int checkForAliases(std::string& arg) {
-    return aliases.find(arg) != aliases.end();
+int checkForAliases(std::string arg) {
+    string firstWord = arg.substr(arg.find_first_not_of(" "), arg.find(" "));
+    if (visited[firstWord] > 0) {
+        perror("Alias Recursion Detected: Halting alias expansion");
+        return false;
+    }
+    return aliases.find(firstWord) != aliases.end();
 }
 
 std::string expandEnvVars(std::string& arg) {
@@ -62,15 +68,17 @@ std::string expandEnvVars(std::string& arg) {
     std::smatch ENVMatch;
 
     while (std::regex_search(arg, ENVMatch, ENV)) {
-        printf("envvar match found\n");
         arg.replace(ENVMatch.begin()->first, ENVMatch[0].second, getenv(ENVMatch[1].str().c_str()));
     }
     return arg;
 }
 
 std::string expandAliases(std::string& arg) {
+    
     while (checkForAliases(arg)) {
-        arg = aliases[arg];
+        string firstWord = arg.substr(arg.find_first_not_of(" "), arg.find(" "));
+        arg.replace(arg.find(firstWord), firstWord.length(), aliases[firstWord]);
+        visited[firstWord]++;
     }
     return arg;
 }
@@ -81,6 +89,7 @@ std::string processExpansions(std::string& arg) {
         arg = expandEnvVars(arg);
         arg = expandAliases(arg);
     }
+    visited.clear();
     return arg;
 }
 
@@ -229,11 +238,9 @@ Command::execute() {
         //last command
         if (_outFile) {
             if (!_append) {
-                printf("not appending\n");
                 fdout = open(_outFile, O_CREAT | O_WRONLY, 0777);
             }
             else {
-                printf("appending\n");
                 fdout = open(_outFile, O_WRONLY | O_APPEND, 0777);
             }
         } else {
@@ -242,7 +249,12 @@ Command::execute() {
           // printf("I am the last command\n");
         }
         if (_errFile) {
-            fderr = open(_errFile, O_CREAT | O_WRONLY, 0777);
+            if (!_append) {
+                fderr = open(_outFile, O_CREAT | O_WRONLY, 0777);
+            }
+            else {
+                fderr = open(_outFile, O_WRONLY | O_APPEND, 0777);
+            }
         }
         else {
             //default error
@@ -455,11 +467,10 @@ int GetCommand() {
   //char eatnewline;
   std::cin.clear();
   if (getline(std::cin, command)) {
-    command = command + "\n";
-    if (command.substr(command.find_first_not_of(" "), command.find(" ")) != "unalias") {
+    if (command.substr(command.find_first_not_of(" "), command.find(" ")) != "unalias ") {
         processExpansions(command);
     }
-    cout << command << endl;
+    command = command + "\n";
     if (my_scan_string(command.c_str()) != 0) {
       printf("error in internal buffer\n");
       my_cleanup();
