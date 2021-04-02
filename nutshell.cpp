@@ -467,8 +467,11 @@ int GetCommand() {
   //char eatnewline;
   std::cin.clear();
   if (getline(std::cin, command)) {
-    if (command.substr(command.find_first_not_of(" "), command.find(" ")) != "unalias ") {
+    if (command.substr(command.find_first_not_of(" "), command.find(" ")) != "unalias") {
         processExpansions(command);
+    }
+    else {
+        expandEnvVars(command);
     }
     command = command + "\n";
     if (my_scan_string(command.c_str()) != 0) {
