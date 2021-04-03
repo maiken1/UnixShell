@@ -46,19 +46,19 @@ void my_cleanup(void) {
      	}	
 
 ">" 	{
-		return GREAT;
+		return OUTPUTFILE;
 		}
 
 "<"     {
-            return LESS;
+            return INPUTFILE;
         }
 
 ">>"    {
-            return GREATGREAT;
+            return APPENDFILE;
         }
 
 "2>&1"    {
-            return GREATAMPERSAND;
+            return ERRORGREATAMPERSAND;
         }
 
 "2>"    {
@@ -69,7 +69,7 @@ void my_cleanup(void) {
             return GREATGREATAMPERSAND;
         }
 
-"| "     {
+"|"     {
             return PIPE;
         }
 
@@ -85,7 +85,7 @@ void my_cleanup(void) {
 
 .	{
 		/* Invalid character in input */
-		return NOTOKEN;
+		return INVALID;
 	}
 
 %%

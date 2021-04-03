@@ -2,7 +2,7 @@
 
 %token	<string_val> WORD 
 
-%token 	NOTOKEN GREAT NEWLINE LESS GREATGREAT GREATGREATAMPERSAND AMPERSAND PIPE GREATAMPERSAND ERROROUTPUT
+%token 	INVALID OUTPUTFILE NEWLINE INPUTFILE APPENDFILE GREATGREATAMPERSAND AMPERSAND PIPE ERRORGREATAMPERSAND ERROROUTPUT
 
 %union	{
 		char   *string_val;
@@ -27,9 +27,9 @@ int yylex();
 #include "command.h"
 
 
-void expandWildCards(char * arg){
+void expandRegexTokens(char * arg){
 	if(strchr(arg, '*') == NULL && strchr(arg, '?') == NULL){
-		Command::_currentSimpleCommand->insertArgument(arg);
+		CommandTable::currentCommand->addArg(arg);
 		return;
 	}
 
@@ -88,8 +88,8 @@ void expandWildCards(char * arg){
 	while((ent = readdir(dir)) != NULL){
 		//check if name is a match
 		if(regexec(&regex, ent->d_name, 0, NULL, 0) == 0){
-			//add argument if name matches
-			Command::_currentSimpleCommand->insertArgument(strdup(ent->d_name));
+			//add arg if name matches
+			CommandTable::currentCommand->addArg(strdup(ent->d_name));
 		}
 	}
 	closedir(dir);
@@ -105,90 +105,86 @@ yyerror(const char * s) {
 
 %%
 
-goal:	
-	commands
+line:	cmd_line
 	;
 
-commands: 
-	command
-	| commands command 
+cmd_line: cmd
+	| cmd_line cmd 
 	;
 
-command: simple_command
-        ;
+cmd: parse_cmd
+    ;
 
-simple_command:	
-	pipe_list io_modifier_list background_optional NEWLINE {
+parse_cmd:	
+	pipe_list iomod_list bg_opt NEWLINE {
 		printf("   Yacc: Execute command\n");
-		Command::_currentCommand.execute();
+		CommandTable::currentCommandTable.execute();
 	}
-	| NEWLINE {Command::_currentCommand.execute();}
+	| NEWLINE {CommandTable::currentCommandTable.execute();}
 	| error NEWLINE { yyerrok; }
 	;
 
-command_and_args:
-	command_word arg_list {
-		Command::_currentCommand.insertSimpleCommand( Command::_currentSimpleCommand );
+cmd_and_args:
+	cmd_word arg_list {
+		CommandTable::currentCommandTable.addCmd( CommandTable::currentCommand );
 	}
 	;
 
-arg_list:
-	arg_list argument
+arg_list:	arg_list arg
 	| /* empty */
 	;
 
-pipe_list:
-	pipe_list PIPE command_and_args
-	| command_and_args
+pipe_list:	pipe_list PIPE cmd_and_args
+	| cmd_and_args
 	;
 
-argument:
+arg:
 	WORD {
             printf("   Yacc: insert argument \"%s\"\n", $1);
-			expandWildCards($1);
+			expandRegexTokens($1);
 	}
 	;
 
-command_word:
+cmd_word:
 	WORD {
         	printf("   Yacc: insert command \"%s\"\n", $1);
-	    	Command::_currentSimpleCommand = new SimpleCommand();
-			Command::_currentSimpleCommand->insertArgument( $1 );
+	    	CommandTable::currentCommand = new Command();
+			CommandTable::currentCommand->addArg( $1 );
 	}
 	;
 
-iomodifier_opt:
-	GREAT WORD {
+iomod_opt:
+	OUTPUTFILE WORD {
 		printf("   Yacc: insert output \"%s\"\n", $2);
-		Command::_currentCommand._outFile = $2;
+		CommandTable::currentCommandTable.outputFile = $2;
 	}
-	|LESS WORD {
+	|INPUTFILE WORD {
 		printf("   Yacc: insert input \"%s\"\n", $2);
-		Command::_currentCommand._inputFile = $2;
+		CommandTable::currentCommandTable.inputFile = $2;
 	}
-	| GREATAMPERSAND{
-		printf("   Yacc: insert output \"%s\"\n", Command::_currentCommand._outFile);
-		printf(" Yacc: setting background True\n");
-		Command::_currentCommand._errFile = Command::_currentCommand._outFile;
-		Command::_currentCommand._append = 1;
+	| ERRORGREATAMPERSAND{
+		printf("   Yacc: insert output \"%s\"\n", CommandTable::currentCommandTable.outputFile);
+		CommandTable::currentCommandTable.errorFile = CommandTable::currentCommandTable.outputFile;
 	}
-	| GREATGREAT WORD{
+	| APPENDFILE WORD{
 		printf("   Yacc: insert output \"%s\"\n", $2);
 		printf(" Yacc: setting output Append\n");
-		Command::_currentCommand._outFile = $2;
-		Command::_currentCommand._append = 1;
+		CommandTable::currentCommandTable.outputFile = $2;
+		CommandTable::currentCommandTable.append = true;
+	}
+	| ERROROUTPUT WORD{
+		CommandTable::currentCommandTable.errorFile = $2;
 	}
 	;
 
-io_modifier_list:
-	io_modifier_list iomodifier_opt
+iomod_list:	iomod_list iomod_opt
 	| /*empty*/
 	;
 
-background_optional:
+bg_opt:
 	AMPERSAND{
 		printf(" Yacc: setting background True\n");
-		Command::_currentCommand._background = 1;
+		CommandTable::currentCommandTable.background = true;
 	}
 	|/* empty */
 	;
