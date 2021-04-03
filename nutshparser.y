@@ -154,17 +154,19 @@ cmd_word:
 	;
 
 iomod_opt:
-	OUTPUTFILE WORD {
+	OUTPUTFILE WORD ERRORGREATAMPERSAND{
+		printf("   Yacc: insert output/erroroutput \"%s\"\n", $2);
+		CommandTable::currentCommandTable.outputFile = $2;
+		CommandTable::currentCommandTable.errorFile = (char *)malloc((strlen(CommandTable::currentCommandTable.outputFile)+1)*sizeof(char));
+		strcpy(CommandTable::currentCommandTable.errorFile, CommandTable::currentCommandTable.outputFile);
+	}
+	| OUTPUTFILE WORD {
 		printf("   Yacc: insert output \"%s\"\n", $2);
 		CommandTable::currentCommandTable.outputFile = $2;
 	}
 	|INPUTFILE WORD {
 		printf("   Yacc: insert input \"%s\"\n", $2);
 		CommandTable::currentCommandTable.inputFile = $2;
-	}
-	| ERRORGREATAMPERSAND{
-		printf("   Yacc: insert output \"%s\"\n", CommandTable::currentCommandTable.outputFile);
-		CommandTable::currentCommandTable.errorFile = CommandTable::currentCommandTable.outputFile;
 	}
 	| APPENDFILE WORD{
 		printf("   Yacc: insert output \"%s\"\n", $2);
