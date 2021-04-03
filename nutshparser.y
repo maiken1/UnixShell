@@ -32,6 +32,10 @@ void expandRegexTokens(char * arg){
 		CommandTable::currentCommand->addArg(arg);
 		return;
 	}
+	if(strcmp(CommandTable::currentCommand->args[0], "alias") == 0){
+		CommandTable::currentCommand->addArg(arg);
+		return;
+	}
 
 	//Converting wild cards
 	//convert * -> .*
