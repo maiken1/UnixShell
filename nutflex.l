@@ -19,9 +19,8 @@ int my_scan_string(const char *s) {
 
 void my_cleanup(void) {
     // No effect if my_string_buffer is NULL
-    printf("cleaning up buffer\n");
     yy_delete_buffer(my_string_buffer);
-    // ... but avoid trying to free the same buffer twice
+    //avoid trying to free the same buffer twice
     my_string_buffer = NULL;
 }
 

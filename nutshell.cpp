@@ -28,6 +28,8 @@
 
 #include "command.h"
 
+#include <wordexp.h>
+
 #include "nutshparser.tab.h"
 
 using namespace std;
@@ -38,6 +40,7 @@ extern "C"
 int my_scan_string(const char * s);
 extern "C"
 void my_cleanup(void);
+string expandedPath;
 
 std::map < std::string, std::string > aliases;
 std::map < std::string, int > visited;
@@ -54,11 +57,11 @@ int checkForENVS(std::string arg) {
 int checkForAliases(std::string arg) {
     string firstWord = arg.substr(arg.find_first_not_of(" "), arg.find(" "));
     if (visited[firstWord] > 0) {
-        perror("Alias Recursion Detected: Halting alias expansion");
         return false;
     }
     return aliases.find(firstWord) != aliases.end();
 }
+
 
 std::string expandEnvVars(std::string& arg) {
     static
@@ -77,6 +80,10 @@ std::string expandAliases(std::string& arg) {
     
     while (checkForAliases(arg)) {
         string firstWord = arg.substr(arg.find_first_not_of(" "), arg.find(" "));
+        if (visited[firstWord] > 0) {
+            perror("Alias Recursion Detected: Halting alias expansion");
+            return arg;
+        }
         arg.replace(arg.find(firstWord), firstWord.length(), aliases[firstWord]);
         visited[firstWord]++;
     }
@@ -91,6 +98,34 @@ std::string processExpansions(std::string& arg) {
     }
     visited.clear();
     return arg;
+}
+
+
+std::string ExpandTildas(const char* path) {
+    if (strcmp(getenv("HOME"), "NULL") == 0) {
+        return(path);
+    }
+
+    wordexp_t exp_result;
+    wordexp(path, &exp_result, 0);
+    printf("%s\n", exp_result.we_wordv[0]);
+    string expansion(exp_result.we_wordv[0]);
+    wordfree(&exp_result);
+    return expansion;
+
+    /*std::string expansion(path);
+    size_t tildaPosition = expansion.find("~");
+    while (tildaPosition != string::npos) {
+        string word = expansion.substr(tildaPosition);
+        if (word.find(":") != string::npos) {
+            word = word.substr(0, word.find(":"));
+        }
+        word = word.substr(0, word.find("/"));
+
+        size_t nextWordIndex = expansion.find(":", tildaPosition);
+       
+        if(expansion.substr(tildaPosition, expansion.find("/",)) == string::npos
+    }*/
 }
 
 Command::Command() {
@@ -222,7 +257,7 @@ CommandTable::execute() {
     if (inputFile) {
       fdin = open(inputFile, O_RDONLY);
       if (fdin < 0) {
-          perror("Input File does not exist");
+          perror("Input File Error");
           clear();
           return;
       }
@@ -241,6 +276,10 @@ CommandTable::execute() {
         }
         else {
             fderr = open(outputFile, O_WRONLY | O_APPEND, 0777);
+        }
+        if (fderr < 0) {
+            perror("Error opening error output file: redirecting to default output");
+            fderr = dup(defaulterr);
         }
     }
     else {
@@ -262,10 +301,13 @@ CommandTable::execute() {
             else {
                 fdout = open(outputFile, O_WRONLY | O_APPEND, 0777);
             }
+            if (fdout < 0) {
+                perror("Error opening output file: redirecting to default output");
+                fdout = dup(defaultout);
+            }
         } else {
           //default output
           fdout = dup(defaultout);
-          // printf("I am the last command\n");
         }
       } else {
         //not last command
@@ -276,11 +318,7 @@ CommandTable::execute() {
       }
       //redirect output
       dup2(fdout, 1);
-      //dup2(fderr, 2);
       close(fdout);
-      //close(fderr);
-      //may have to deal with this for backgrounds
-      int status;
       string builtinCheck(commands[i] -> args[0]);
 
       if (builtinCheck == "bye") {
@@ -290,7 +328,9 @@ CommandTable::execute() {
       } else if (builtinCheck == "setenv") {
         if (CheckNumberOfArguments(commands[i] -> args[0], commands[i] -> numArgs, 3, 3)) {
           printf("Setting environment variable %s to %s\n", commands[i] -> args[1], commands[i] -> args[2]);
-          setenv(commands[i] -> args[1], commands[i] -> args[2], 1);
+
+            setenv(commands[i]->args[1], commands[i]->args[2], 1);
+          
         }
       } else if (builtinCheck == "printenv") {
         char ** s = environ;
@@ -301,11 +341,27 @@ CommandTable::execute() {
         }
       } else if (builtinCheck == "unsetenv") {
         if (CheckNumberOfArguments(commands[i] -> args[0], commands[i] -> numArgs, 2, 2)) {
-          unsetenv(commands[i] -> args[1]);
+            if (strcmp(commands[i]->args[1],"PATH") == 0) {
+                setenv("PATH", (char*)(":/bin:/usr/bin"), 1);
+            }
+            else if (strcmp(commands[i]->args[1], "HOME") == 0) {
+                setenv("HOME", (char*)("NULL"), 1);
+            }
+            else {
+                unsetenv(commands[i]->args[1]);
+            }
+          
         }
       } else if (builtinCheck == "cd") {
         if (CheckNumberOfArguments(commands[i] -> args[0], commands[i] -> numArgs, 1, 2)) {
-            if (commands[i]->numArgs == 1) { chdir(getenv("HOME")); }
+            if (commands[i]->numArgs == 1) { 
+                if (strcmp(getenv("HOME"), "NULL") == 0) {
+                    perror("HOME currently set to NULL\n");
+                }
+                else {
+                    chdir(getenv("HOME"));
+                }
+            }
             else{ chdir(commands[i]->args[1]); }
           
         }
@@ -329,19 +385,16 @@ CommandTable::execute() {
       }
       else {
         //create child process
-        // printf("forking\n");
         pid = fork();
         if (pid == 0) {
           //execution code here
-          // REMOVE THIS CODE
-          //execvp(commands[i]->args[0], commands[i]->args);
-          // printf("inside fork\n");
           search(commands[i] -> args[0], commands[i] -> args);
-          perror("search failed\n");
-          // perror("execvp encountered an error");
+          perror("search failed: exiting thread\n");
           _exit(1);
-          //search path for executable, error if not found
 
+        }
+        else if (pid < 0) {
+            perror("Fork failure");
         }
       }
     }
@@ -361,8 +414,6 @@ CommandTable::execute() {
   
     // Clear to prepare for next command
     clear();
-    // Print new prompt
-
   }
 
 }
@@ -442,7 +493,10 @@ Command* CommandTable::currentCommand;
 int GetCommand();
 
 int main() {
-  
+  setenv("HOME", get_current_dir_name(), 1);
+  setenv("PATH", (char *)(".:/bin:/usr/bin"), 1);
+  //expandedPath = ExpandTildas(PATH);
+
   do {
 
     GetCommand();
@@ -455,7 +509,6 @@ int main() {
 int GetCommand() {
   CommandTable::currentCommandTable.prompt();
   string command;
-  //char eatnewline;
   std::cin.clear();
   if (getline(std::cin, command)) {
     if (command.substr(command.find_first_not_of(" "), command.find(" ")) != "unalias") {
@@ -464,6 +517,7 @@ int GetCommand() {
     else {
         expandEnvVars(command);
     }
+    //command = ExpandTildas(command.c_str());
     command = command + "\n";
     if (my_scan_string(command.c_str()) != 0) {
       printf("error in internal buffer\n");
@@ -473,6 +527,9 @@ int GetCommand() {
         yyparse();
         my_cleanup();
     }
+  }
+  if (feof(stdin)) {
+      CommandTable::currentCommandTable.bye = true;
   }
   std::cin.clear();
 
