@@ -10,28 +10,29 @@
 
 // #include <vector>
 // std::vector<char *> alias_list;
-// Command Data Structure
-struct SimpleCommand {
+// CommandTable Data Structure
+struct Command {
   // Available space for arguments currently preallocated
-  int _numberOfAvailableArguments;
+  int argSpaceAvailable;
 
   // Number of arguments
-  int _numberOfArguments;
-  char ** _arguments;
+  int numArgs;
+  char** args;
 
-  SimpleCommand();
-  void insertArgument(char * argument);
+  Command();
+  void addArg(char * argument);
 };
 
-struct Command {
-  int _numberOfAvailableSimpleCommands;
-  int _numberOfSimpleCommands;
-  SimpleCommand ** _simpleCommands;
-  char * _outFile;
-  char * _inputFile;
-  char * _errFile;
-  int _background;
-  int _append;
+struct CommandTable {
+  int numOfCommandsAvailable;
+  int numCommands;
+  Command** commands;
+  char* outputFile;
+  char* inputFile;
+  char* errorFile;
+  bool background = false;
+  bool append = false;
+  bool bye = false;
 
   void prompt();
   void print();
@@ -41,9 +42,9 @@ struct Command {
   int search(char * file, char *
     const argv[]);
 
-  Command();
-  void insertSimpleCommand(SimpleCommand * simpleCommand);
+  CommandTable();
+  void addCmd(Command* command);
 
-  static Command _currentCommand;
-  static SimpleCommand * _currentSimpleCommand;
+  static CommandTable currentCommandTable;
+  static Command* currentCommand;
 };

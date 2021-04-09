@@ -28,6 +28,8 @@
 
 #include "command.h"
 
+#include <wordexp.h>
+
 #include "nutshparser.tab.h"
 
 using namespace std;
@@ -38,6 +40,7 @@ extern "C"
 int my_scan_string(const char * s);
 extern "C"
 void my_cleanup(void);
+string expandedPath;
 
 std::map < std::string, std::string > aliases;
 std::map < std::string, int > visited;
@@ -54,11 +57,11 @@ int checkForENVS(std::string arg) {
 int checkForAliases(std::string arg) {
     string firstWord = arg.substr(arg.find_first_not_of(" "), arg.find(" "));
     if (visited[firstWord] > 0) {
-        perror("Alias Recursion Detected: Halting alias expansion");
         return false;
     }
     return aliases.find(firstWord) != aliases.end();
 }
+
 
 std::string expandEnvVars(std::string& arg) {
     static
@@ -77,6 +80,10 @@ std::string expandAliases(std::string& arg) {
     
     while (checkForAliases(arg)) {
         string firstWord = arg.substr(arg.find_first_not_of(" "), arg.find(" "));
+        if (visited[firstWord] > 0) {
+            perror("Alias Recursion Detected: Halting alias expansion");
+            return arg;
+        }
         arg.replace(arg.find(firstWord), firstWord.length(), aliases[firstWord]);
         visited[firstWord]++;
     }
@@ -93,134 +100,167 @@ std::string processExpansions(std::string& arg) {
     return arg;
 }
 
-SimpleCommand::SimpleCommand() {
-  // Creat available space for 5 arguments
-  _numberOfAvailableArguments = 5;
-  _numberOfArguments = 0;
-  _arguments = (char ** ) malloc(_numberOfAvailableArguments * sizeof(char * ));
-}
 
-void
-SimpleCommand::insertArgument(char * argument) {
-  if (_numberOfAvailableArguments == _numberOfArguments + 1) {
-    // Double the available space
-    _numberOfAvailableArguments *= 2;
-    _arguments = (char ** ) realloc(_arguments,
-      _numberOfAvailableArguments * sizeof(char * ));
-  }
+std::string ExpandTildas(const char* path) {
+    if (strcmp(getenv("HOME"), "NULL") == 0) {
+        return(path);
+    }
 
-  _arguments[_numberOfArguments] = argument;
+    wordexp_t exp_result;
+    wordexp(path, &exp_result, 0);
+    printf("%s\n", exp_result.we_wordv[0]);
+    string expansion(exp_result.we_wordv[0]);
+    wordfree(&exp_result);
+    return expansion;
 
-  // Add NULL argument at the end
-  _arguments[_numberOfArguments + 1] = NULL;
+    /*std::string expansion(path);
+    size_t tildaPosition = expansion.find("~");
+    while (tildaPosition != string::npos) {
+        string word = expansion.substr(tildaPosition);
+        if (word.find(":") != string::npos) {
+            word = word.substr(0, word.find(":"));
+        }
+        word = word.substr(0, word.find("/"));
 
-  _numberOfArguments++;
+        size_t nextWordIndex = expansion.find(":", tildaPosition);
+       
+        if(expansion.substr(tildaPosition, expansion.find("/",)) == string::npos
+    }*/
 }
 
 Command::Command() {
-  // Create available space for one simple command
-  _numberOfAvailableSimpleCommands = 1;
-  _simpleCommands = (SimpleCommand ** )
-  malloc(_numberOfSimpleCommands * sizeof(SimpleCommand * ));
-
-  _numberOfSimpleCommands = 0;
-  _outFile = 0;
-  _inputFile = 0;
-  _errFile = 0;
-  _background = 0;
+  // Creat available space for 5 arguments
+  argSpaceAvailable = 5;
+  numArgs = 0;
+  args = (char ** ) malloc(argSpaceAvailable * sizeof(char * ));
 }
 
 void
-Command::insertSimpleCommand(SimpleCommand * simpleCommand) {
-  if (_numberOfAvailableSimpleCommands == _numberOfSimpleCommands) {
-    _numberOfAvailableSimpleCommands *= 2;
-    _simpleCommands = (SimpleCommand ** ) realloc(_simpleCommands,
-      _numberOfAvailableSimpleCommands * sizeof(SimpleCommand * ));
+Command::addArg(char * argument) {
+  if (argSpaceAvailable == numArgs + 1) {
+    // Double the available space
+    argSpaceAvailable *= 2;
+    args = (char ** ) realloc(args,
+      argSpaceAvailable * sizeof(char * ));
   }
 
-  _simpleCommands[_numberOfSimpleCommands] = simpleCommand;
-  _numberOfSimpleCommands++;
+  args[numArgs] = argument;
+
+  // Add NULL argument at the end
+  args[numArgs + 1] = NULL;
+
+  numArgs++;
+}
+
+CommandTable::CommandTable() {
+  // Create available space for one simple command
+  numOfCommandsAvailable = 1;
+  commands = (Command ** )
+  malloc(numCommands * sizeof(Command * ));
+
+  numCommands = 0;
+  outputFile = 0;
+  inputFile = 0;
+  errorFile = 0;
+  background = 0;
 }
 
 void
-Command::clear() {
-  for (int i = 0; i < _numberOfSimpleCommands; i++) {
-    for (int j = 0; j < _simpleCommands[i] -> _numberOfArguments; j++) {
-      free(_simpleCommands[i] -> _arguments[j]);
+CommandTable::addCmd(Command * command) {
+  if (numOfCommandsAvailable == numCommands) {
+    numOfCommandsAvailable *= 2;
+    commands = (Command ** ) realloc(commands,
+      numOfCommandsAvailable * sizeof(Command * ));
+  }
+
+  commands[numCommands] = command;
+  numCommands++;
+}
+
+void
+CommandTable::clear() {
+  for (int i = 0; i < numCommands; i++) {
+    for (int j = 0; j < commands[i] -> numArgs; j++) {
+      free(commands[i] -> args[j]);
     }
 
-    free(_simpleCommands[i] -> _arguments);
-    free(_simpleCommands[i]);
+    free(commands[i] -> args);
+    free(commands[i]);
   }
 
-  if (_outFile) {
-    free(_outFile);
+  if (outputFile) {
+    free(outputFile);
   }
 
-  if (_inputFile) {
-    free(_inputFile);
+  if (inputFile) {
+    free(inputFile);
   }
 
-  if (_errFile) {
-    free(_errFile);
+  if (errorFile) {
+    free(errorFile);
   }
 
-  _numberOfSimpleCommands = 0;
-  _outFile = 0;
-  _inputFile = 0;
-  _errFile = 0;
-  _background = 0;
+  numCommands = 0;
+  outputFile = 0;
+  inputFile = 0;
+  errorFile = 0;
+  background = 0;
 }
 
 void
-Command::print() {
+CommandTable::print() {
   printf("\n\n");
   printf("              COMMAND TABLE                \n");
   printf("\n");
   printf("  #   Simple Commands\n");
   printf("  --- ----------------------------------------------------------\n");
-  printf("Number of Simple Commands: %d\n", _numberOfSimpleCommands);
+  printf("Number of Simple Commands: %d\n", numCommands);
 
-  for (int i = 0; i < _numberOfSimpleCommands; i++) {
+  for (int i = 0; i < numCommands; i++) {
     printf("  %-3d ", i);
-    printf("Number of arguments: %d\n", _simpleCommands[i] -> _numberOfArguments);
-    for (int j = 0; j < _simpleCommands[i] -> _numberOfArguments; j++) {
-      printf("\"%s\" \t", _simpleCommands[i] -> _arguments[j]);
+    printf("Number of arguments: %d\n", commands[i] -> numArgs);
+    for (int j = 0; j < commands[i] -> numArgs; j++) {
+      printf("\"%s\" \t", commands[i] -> args[j]);
     }
   }
 
   printf("\n\n");
   printf("  Output       Input        Error        Background\n");
   printf("  ------------ ------------ ------------ ------------\n");
-  printf("  %-12s %-12s %-12s %-12s\n", _outFile ? _outFile : "default",
-    _inputFile ? _inputFile : "default", _errFile ? _errFile : "default",
-    _background ? "YES" : "NO");
+  printf("  %-12s %-12s %-12s %-12s\n", outputFile ? outputFile : "default",
+    inputFile ? inputFile : "default", errorFile ? errorFile : "default",
+    background ? "YES" : "NO");
   printf("\n\n");
 
 }
 
 void
-Command::execute() {
+CommandTable::execute() {
   // Don't do anything if there are no simple commands
   /// <summary>
   /// WHAT DO
   /// </summary>
   int status;
   ////////////////////
-  if (_numberOfSimpleCommands == 0) {
+  if (numCommands == 0) {
     prompt();
     return;
   } else {
-    // Print contents of Command data structure
+    // Print contents of CommandTable data structure
     print();
 
     int defaultin = dup(0);
     int defaultout = dup(1);
-    int defaulterror = dup(2);
+    int defaulterr = dup(2);
 
     int fdin;
-    if (_inputFile) {
-      fdin = open(_inputFile, O_RDONLY);
+    if (inputFile) {
+      fdin = open(inputFile, O_RDONLY);
+      if (fdin < 0) {
+          perror("Input File Error");
+          clear();
+          return;
+      }
     } else {
       //use default input
       fdin = dup(defaultin);
@@ -229,40 +269,48 @@ Command::execute() {
     pid_t pid;
     int fdout;
     int fderr;
-    for (int i = 0; i < _numberOfSimpleCommands; i++) {
+
+    if (errorFile) {
+        if (!append) {
+            fderr = open(outputFile, O_CREAT | O_WRONLY, 0777);
+        }
+        else {
+            fderr = open(outputFile, O_WRONLY | O_APPEND, 0777);
+        }
+        if (fderr < 0) {
+            perror("Error opening error output file: redirecting to default output");
+            fderr = dup(defaulterr);
+        }
+    }
+    else {
+        fderr = dup(defaulterr);
+    }
+    dup2(fderr, 2);
+    close(fderr);
+    for (int i = 0; i < numCommands; i++) {
       //redirect input
       dup2(fdin, 0);
       close(fdin);
       //setup output
-      if (_simpleCommands[i] == _simpleCommands[_numberOfSimpleCommands - 1]) {
+      if (commands[i] == commands[numCommands - 1]) {
         //last command
-        if (_outFile) {
-            if (!_append) {
-                fdout = open(_outFile, O_CREAT | O_WRONLY, 0777);
+        if (outputFile) {
+            if (!append) {
+                fdout = open(outputFile, O_CREAT | O_WRONLY, 0777);
             }
             else {
-                fdout = open(_outFile, O_WRONLY | O_APPEND, 0777);
+                fdout = open(outputFile, O_WRONLY | O_APPEND, 0777);
+            }
+            if (fdout < 0) {
+                perror("Error opening output file: redirecting to default output");
+                fdout = dup(defaultout);
             }
         } else {
           //default output
           fdout = dup(defaultout);
-          // printf("I am the last command\n");
-        }
-        if (_errFile) {
-            if (!_append) {
-                fderr = open(_outFile, O_CREAT | O_WRONLY, 0777);
-            }
-            else {
-                fderr = open(_outFile, O_WRONLY | O_APPEND, 0777);
-            }
-        }
-        else {
-            //default error
-            fderr = dup(defaulterror);
         }
       } else {
-        //not last simple command
-        printf("creating pipes\n");
+        //not last command
         int fdpipe[2];
         pipe(fdpipe);
         fdout = fdpipe[1];
@@ -270,44 +318,58 @@ Command::execute() {
       }
       //redirect output
       dup2(fdout, 1);
-      dup2(fderr, 2);
       close(fdout);
-      close(fderr);
-      //may have to deal with this for backgrounds
-      int status;
-      string builtinCheck(_simpleCommands[i] -> _arguments[0]);
+      string builtinCheck(commands[i] -> args[0]);
 
       if (builtinCheck == "bye") {
-        if (CheckNumberOfArguments(_simpleCommands[i] -> _arguments[0], _simpleCommands[i] -> _numberOfArguments, 1, 1)) {
-          printf("I want to exit\n");
+        if (CheckNumberOfArguments(commands[i] -> args[0], commands[i] -> numArgs, 1, 1)) {
+            this->bye = true;
         }
       } else if (builtinCheck == "setenv") {
-        if (CheckNumberOfArguments(_simpleCommands[i] -> _arguments[0], _simpleCommands[i] -> _numberOfArguments, 3, 3)) {
-          printf("Setting environment variable %s to %s\n", _simpleCommands[i] -> _arguments[1], _simpleCommands[i] -> _arguments[2]);
-          setenv(_simpleCommands[i] -> _arguments[1], _simpleCommands[i] -> _arguments[2], 1);
+        if (CheckNumberOfArguments(commands[i] -> args[0], commands[i] -> numArgs, 3, 3)) {
+          printf("Setting environment variable %s to %s\n", commands[i] -> args[1], commands[i] -> args[2]);
+
+            setenv(commands[i]->args[1], commands[i]->args[2], 1);
+          
         }
       } else if (builtinCheck == "printenv") {
         char ** s = environ;
-        if (CheckNumberOfArguments(_simpleCommands[i] -> _arguments[0], _simpleCommands[i] -> _numberOfArguments, 1, 1)) {
+        if (CheckNumberOfArguments(commands[i] -> args[0], commands[i] -> numArgs, 1, 1)) {
           for (;* s; s++) {
             printf("%s\n", * s);
           }
         }
       } else if (builtinCheck == "unsetenv") {
-        if (CheckNumberOfArguments(_simpleCommands[i] -> _arguments[0], _simpleCommands[i] -> _numberOfArguments, 2, 2)) {
-          unsetenv(_simpleCommands[i] -> _arguments[1]);
+        if (CheckNumberOfArguments(commands[i] -> args[0], commands[i] -> numArgs, 2, 2)) {
+            if (strcmp(commands[i]->args[1],"PATH") == 0) {
+                setenv("PATH", (char*)(":/bin:/usr/bin"), 1);
+            }
+            else if (strcmp(commands[i]->args[1], "HOME") == 0) {
+                setenv("HOME", (char*)("NULL"), 1);
+            }
+            else {
+                unsetenv(commands[i]->args[1]);
+            }
+          
         }
       } else if (builtinCheck == "cd") {
-        if (CheckNumberOfArguments(_simpleCommands[i] -> _arguments[0], _simpleCommands[i] -> _numberOfArguments, 1, 2)) {
-            if (_simpleCommands[i]->_numberOfArguments == 1) { chdir(getenv("HOME")); }
-            else{ chdir(_simpleCommands[i]->_arguments[1]); }
+        if (CheckNumberOfArguments(commands[i] -> args[0], commands[i] -> numArgs, 1, 2)) {
+            if (commands[i]->numArgs == 1) { 
+                if (strcmp(getenv("HOME"), "NULL") == 0) {
+                    perror("HOME currently set to NULL\n");
+                }
+                else {
+                    chdir(getenv("HOME"));
+                }
+            }
+            else{ chdir(commands[i]->args[1]); }
           
         }
       } else if (builtinCheck == "alias") {
-        if (CheckNumberOfArguments(_simpleCommands[i] -> _arguments[0], _simpleCommands[i] -> _numberOfArguments, 1, 3)) {
-          if (_simpleCommands[i] -> _numberOfArguments == 3) {
-            aliases.insert(std::make_pair(string(_simpleCommands[i] -> _arguments[1]), string(_simpleCommands[i] -> _arguments[2])));
-          } else if (_simpleCommands[i] -> _numberOfArguments == 1) {
+        if (CheckNumberOfArguments(commands[i] -> args[0], commands[i] -> numArgs, 1, 3)) {
+          if (commands[i] -> numArgs == 3) {
+            aliases.insert(std::make_pair(string(commands[i] -> args[1]), string(commands[i] -> args[2])));
+          } else if (commands[i] -> numArgs == 1) {
             for (auto it = aliases.cbegin(); it != aliases.cend(); ++it) {
               string out = it -> first + "=" + it -> second;
               printf("%s\n", out.c_str());
@@ -317,30 +379,22 @@ Command::execute() {
           }
         }
       } else if (builtinCheck == "unalias") {
-        if (CheckNumberOfArguments(_simpleCommands[i] -> _arguments[0], _simpleCommands[i] -> _numberOfArguments, 2, 2)) {
-          aliases.erase(string(_simpleCommands[i] -> _arguments[1]));
+        if (CheckNumberOfArguments(commands[i] -> args[0], commands[i] -> numArgs, 2, 2)) {
+          aliases.erase(string(commands[i] -> args[1]));
         }
       }
-      // else if (builtinCheck == "aliases") {
-      // 	if (CheckNumberOfArguments(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_numberOfArguments, 2, 2)) {
-      // 		aliases.erase(_simpleCommands[i]->_arguments[1]);
-      // 	}
-      // }
       else {
         //create child process
-        // printf("forking\n");
         pid = fork();
         if (pid == 0) {
           //execution code here
-          // REMOVE THIS CODE
-          //execvp(_simpleCommands[i]->_arguments[0], _simpleCommands[i]->_arguments);
-          // printf("inside fork\n");
-          search(_simpleCommands[i] -> _arguments[0], _simpleCommands[i] -> _arguments);
-          perror("search failed\n");
-          // perror("execvp encountered an error");
+          search(commands[i] -> args[0], commands[i] -> args);
+          perror("search failed: exiting thread\n");
           _exit(1);
-          //search path for executable, error if not found
 
+        }
+        else if (pid < 0) {
+            perror("Fork failure");
         }
       }
     }
@@ -348,37 +402,23 @@ Command::execute() {
     //restore in/out states to default
     dup2(defaultin, 0);
     dup2(defaultout, 1);
-    dup2(defaulterror, 2);
+    dup2(defaulterr, 2);
     close(defaultin);
     close(defaultout);
-    close(defaulterror);
-    // printf("defaults restored\n");
+    close(defaulterr);
 
-    if (!_background) {
+    if (!background) {
       waitpid(pid, & status, WUNTRACED);
     }
 
-    /*if (_numberOfSimpleCommands == 1 && _simpleCommands[0]->_numberOfArguments == 1) {
-    	printf("I want to exit the shell.\n");
-    	string someString(_simpleCommands[0]->_arguments[0]);
-    	printf("%s",someString.c_str());
-    }*/
-
-    // Add execution here
-    // For every simple command fork a new process
-    // Setup i/o redirection
-    // and call exec
-
+  
     // Clear to prepare for next command
-    // printf("clearing command table\n");
     clear();
-    // Print new prompt
-
   }
 
 }
 
-int Command::CheckNumberOfArguments(char * command, int inputArguments, int min, int max) {
+int CommandTable::CheckNumberOfArguments(char * command, int inputArguments, int min, int max) {
   if (inputArguments < min) {
     printf("%s: Too few arguments\n", command);
     return 0;
@@ -389,7 +429,7 @@ int Command::CheckNumberOfArguments(char * command, int inputArguments, int min,
   return 1;
 }
 
-int Command::search(char * cmd, char *
+int CommandTable::search(char * cmd, char *
   const argv[]) {
   char buf[260];
   // return an error is there is no cmd
@@ -440,31 +480,35 @@ int Command::search(char * cmd, char *
 // Shell implementation
 
 void
-Command::prompt() {
+CommandTable::prompt() {
   char* wd = get_current_dir_name();
   printf("nutshell:%s$  ", wd);
   free(wd);
   fflush(stdout);
 }
 
-Command Command::_currentCommand;
-SimpleCommand * Command::_currentSimpleCommand;
+CommandTable CommandTable::currentCommandTable;
+Command* CommandTable::currentCommand;
 
 int GetCommand();
 
 int main() {
-  Command::_currentCommand.prompt();
-  while (1) {
+  setenv("HOME", get_current_dir_name(), 1);
+  setenv("PATH", (char *)(".:/bin:/usr/bin"), 1);
+  //expandedPath = ExpandTildas(PATH);
+
+  do {
 
     GetCommand();
-  }
+  } while (CommandTable::currentCommandTable.bye == false);
+  printf("Thank you for using the nutshell.\n");
 
   return 0;
 }
 
 int GetCommand() {
+  CommandTable::currentCommandTable.prompt();
   string command;
-  //char eatnewline;
   std::cin.clear();
   if (getline(std::cin, command)) {
     if (command.substr(command.find_first_not_of(" "), command.find(" ")) != "unalias") {
@@ -473,6 +517,7 @@ int GetCommand() {
     else {
         expandEnvVars(command);
     }
+    //command = ExpandTildas(command.c_str());
     command = command + "\n";
     if (my_scan_string(command.c_str()) != 0) {
       printf("error in internal buffer\n");
@@ -482,7 +527,9 @@ int GetCommand() {
         yyparse();
         my_cleanup();
     }
-    Command::_currentCommand.prompt();
+  }
+  if (feof(stdin)) {
+      CommandTable::currentCommandTable.bye = true;
   }
   std::cin.clear();
 

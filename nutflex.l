@@ -19,9 +19,8 @@ int my_scan_string(const char *s) {
 
 void my_cleanup(void) {
     // No effect if my_string_buffer is NULL
-    printf("cleaning up buffer\n");
     yy_delete_buffer(my_string_buffer);
-    // ... but avoid trying to free the same buffer twice
+    //avoid trying to free the same buffer twice
     my_string_buffer = NULL;
 }
 
@@ -46,19 +45,19 @@ void my_cleanup(void) {
      	}	
 
 ">" 	{
-		return GREAT;
+		return OUTPUTFILE;
 		}
 
 "<"     {
-            return LESS;
+            return INPUTFILE;
         }
 
 ">>"    {
-            return GREATGREAT;
+            return APPENDFILE;
         }
 
 "2>&1"    {
-            return GREATAMPERSAND;
+            return ERRORGREATAMPERSAND;
         }
 
 "2>"    {
@@ -69,7 +68,7 @@ void my_cleanup(void) {
             return GREATGREATAMPERSAND;
         }
 
-"| "     {
+"|"     {
             return PIPE;
         }
 
@@ -85,7 +84,7 @@ void my_cleanup(void) {
 
 .	{
 		/* Invalid character in input */
-		return NOTOKEN;
+		return INVALID;
 	}
 
 %%
