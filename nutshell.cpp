@@ -57,6 +57,7 @@ int checkForENVS(std::string arg) {
 int checkForAliases(std::string arg) {
     string firstWord = arg.substr(arg.find_first_not_of(" "), arg.find(" "));
     if (visited[firstWord] > 0) {
+        perror("Alias Recursion Detected");
         return false;
     }
     return aliases.find(firstWord) != aliases.end();
@@ -80,14 +81,28 @@ std::string expandAliases(std::string& arg) {
     
     while (checkForAliases(arg)) {
         string firstWord = arg.substr(arg.find_first_not_of(" "), arg.find(" "));
+
         if (visited[firstWord] > 0) {
-            perror("Alias Recursion Detected: Halting alias expansion");
             return arg;
         }
         arg.replace(arg.find(firstWord), firstWord.length(), aliases[firstWord]);
         visited[firstWord]++;
     }
     return arg;
+}
+
+int CheckAliasRecursion(std::string arg) {
+    string firstWord = arg.substr(arg.find_first_not_of(" "), arg.find(" "));
+    while (aliases.find(firstWord) != aliases.end()) {
+        if (visited[firstWord] > 0) {
+            perror("Alias Recursion Detected");
+            return false;
+        }
+        visited[firstWord]++;
+        arg.replace(arg.find(firstWord), firstWord.length(), aliases[firstWord]);
+        firstWord = arg.substr(arg.find_first_not_of(" "), arg.find(" "));
+    }
+    return true;
 }
 
 std::string processExpansions(std::string& arg) {
@@ -99,6 +114,8 @@ std::string processExpansions(std::string& arg) {
     visited.clear();
     return arg;
 }
+
+
 
 
 std::string ExpandTildas(const char* path) {
@@ -153,7 +170,7 @@ Command::addArg(char * argument) {
 }
 
 CommandTable::CommandTable() {
-  // Create available space for one simple command
+  // Create available space for one command
   numOfCommandsAvailable = 1;
   commands = (Command ** )
   malloc(numCommands * sizeof(Command * ));
@@ -207,47 +224,18 @@ CommandTable::clear() {
   background = 0;
 }
 
-void
-CommandTable::print() {
-  printf("\n\n");
-  printf("              COMMAND TABLE                \n");
-  printf("\n");
-  printf("  #   Simple Commands\n");
-  printf("  --- ----------------------------------------------------------\n");
-  printf("Number of Simple Commands: %d\n", numCommands);
-
-  for (int i = 0; i < numCommands; i++) {
-    printf("  %-3d ", i);
-    printf("Number of arguments: %d\n", commands[i] -> numArgs);
-    for (int j = 0; j < commands[i] -> numArgs; j++) {
-      printf("\"%s\" \t", commands[i] -> args[j]);
-    }
-  }
-
-  printf("\n\n");
-  printf("  Output       Input        Error        Background\n");
-  printf("  ------------ ------------ ------------ ------------\n");
-  printf("  %-12s %-12s %-12s %-12s\n", outputFile ? outputFile : "default",
-    inputFile ? inputFile : "default", errorFile ? errorFile : "default",
-    background ? "YES" : "NO");
-  printf("\n\n");
-
-}
 
 void
 CommandTable::execute() {
   // Don't do anything if there are no simple commands
-  /// <summary>
-  /// WHAT DO
-  /// </summary>
+ 
   int status;
-  ////////////////////
   if (numCommands == 0) {
     prompt();
     return;
   } else {
     // Print contents of CommandTable data structure
-    print();
+    //print();
 
     int defaultin = dup(0);
     int defaultout = dup(1);
@@ -272,10 +260,10 @@ CommandTable::execute() {
 
     if (errorFile) {
         if (!append) {
-            fderr = open(outputFile, O_CREAT | O_WRONLY, 0777);
+            fderr = open(errorFile, O_WRONLY | O_CREAT | O_TRUNC, 0777);
         }
         else {
-            fderr = open(outputFile, O_WRONLY | O_APPEND, 0777);
+            fderr = open(errorFile, O_WRONLY | O_APPEND, 0777);
         }
         if (fderr < 0) {
             perror("Error opening error output file: redirecting to default output");
@@ -296,7 +284,7 @@ CommandTable::execute() {
         //last command
         if (outputFile) {
             if (!append) {
-                fdout = open(outputFile, O_CREAT | O_WRONLY, 0777);
+                fdout = open(outputFile, O_WRONLY | O_CREAT | O_TRUNC, 0777);
             }
             else {
                 fdout = open(outputFile, O_WRONLY | O_APPEND, 0777);
@@ -327,10 +315,7 @@ CommandTable::execute() {
         }
       } else if (builtinCheck == "setenv") {
         if (CheckNumberOfArguments(commands[i] -> args[0], commands[i] -> numArgs, 3, 3)) {
-          printf("Setting environment variable %s to %s\n", commands[i] -> args[1], commands[i] -> args[2]);
-
             setenv(commands[i]->args[1], commands[i]->args[2], 1);
-          
         }
       } else if (builtinCheck == "printenv") {
         char ** s = environ;
@@ -342,10 +327,10 @@ CommandTable::execute() {
       } else if (builtinCheck == "unsetenv") {
         if (CheckNumberOfArguments(commands[i] -> args[0], commands[i] -> numArgs, 2, 2)) {
             if (strcmp(commands[i]->args[1],"PATH") == 0) {
-                setenv("PATH", (char*)(":/bin:/usr/bin"), 1);
+                perror("Cannot unset PATH");
             }
             else if (strcmp(commands[i]->args[1], "HOME") == 0) {
-                setenv("HOME", (char*)("NULL"), 1);
+                perror("Cannot unset HOME");
             }
             else {
                 unsetenv(commands[i]->args[1]);
@@ -365,19 +350,38 @@ CommandTable::execute() {
             else{ chdir(commands[i]->args[1]); }
           
         }
-      } else if (builtinCheck == "alias") {
-        if (CheckNumberOfArguments(commands[i] -> args[0], commands[i] -> numArgs, 1, 3)) {
-          if (commands[i] -> numArgs == 3) {
-            aliases.insert(std::make_pair(string(commands[i] -> args[1]), string(commands[i] -> args[2])));
-          } else if (commands[i] -> numArgs == 1) {
-            for (auto it = aliases.cbegin(); it != aliases.cend(); ++it) {
-              string out = it -> first + "=" + it -> second;
-              printf("%s\n", out.c_str());
-            }
-          } else {
-            perror("alias: Wrong number of arguments\n");
+      }
+      else if (builtinCheck == "alias") {
+          if (CheckNumberOfArguments(commands[i]->args[0], commands[i]->numArgs, 1, 3)) {
+              if (commands[i]->numArgs == 3) {
+                  string recursionCheck(commands[i]->args[1]);
+                  recursionCheck = recursionCheck + " ";
+                  if (aliases.find(string(commands[i]->args[1])) == aliases.end()) {
+                      aliases[string(commands[i]->args[1])] = string(commands[i]->args[2]);
+                      if (CheckAliasRecursion(recursionCheck) == false) {
+                          aliases.erase(string(commands[i]->args[1]));
+                      }
+                  }
+                  else {
+                      string previousValue = aliases[string(commands[i]->args[1])];
+                      aliases[string(commands[i]->args[1])] = string(commands[i]->args[2]);
+                      if (!CheckAliasRecursion(recursionCheck)) {
+                          aliases[string(commands[i]->args[1])] = previousValue;
+                      }
+                  }
+                  visited.clear();
+
+              }
+              else if (commands[i]->numArgs == 1) {
+                  for (auto it = aliases.cbegin(); it != aliases.cend(); ++it) {
+                      string out = it->first + "=" + it->second;
+                      printf("%s\n", out.c_str());
+                  }
+              }
+              else {
+                  perror("alias: Wrong number of arguments\n");
+              }
           }
-        }
       } else if (builtinCheck == "unalias") {
         if (CheckNumberOfArguments(commands[i] -> args[0], commands[i] -> numArgs, 2, 2)) {
           aliases.erase(string(commands[i] -> args[1]));

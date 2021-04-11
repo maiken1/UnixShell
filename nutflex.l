@@ -28,11 +28,21 @@ void my_cleanup(void) {
 
 %%
 
-\".*\"  {
-            yylval.string_val = calloc(strlen(yytext)-1, sizeof(char));
-            strncpy(yylval.string_val, &yytext[1], strlen(yytext-2));
+\'([^\\\']|\\.)*\'  {
+            yylval.string_val = strdup(yytext);
+            size_t len = strlen(yytext);
+            memmove(yylval.string_val, yylval.string_val + 1, len - 2);
             // set NULL terminator
-            yylval.string_val[strlen(yylval.string_val) - 1] = '\0';
+            yylval.string_val[len - 2] = 0;
+            return WORD;
+        }
+
+\"([^\\\"]|\\.)*\"  {
+            yylval.string_val = strdup(yytext);
+            size_t len = strlen(yytext);
+            memmove(yylval.string_val, yylval.string_val + 1, len - 2);
+            // set NULL terminator
+            yylval.string_val[len - 2] = 0;
             return WORD;
         }
 
@@ -60,7 +70,9 @@ void my_cleanup(void) {
             return ERRORGREATAMPERSAND;
         }
 
-"2>"    {
+"2>"[^ \t\n]*    {
+            yylval.string_val = strdup(yytext);
+            memmove(yylval.string_val, yylval.string_val + 2, strlen(yylval.string_val));
             return ERROROUTPUT;
         }
 
