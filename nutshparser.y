@@ -28,6 +28,8 @@ int yylex();
 
 
 void expandRegexTokens(char * arg){
+	std::string noArgDefault(arg);
+	bool argAdded = false;
 	if(strchr(arg, '*') == NULL && strchr(arg, '?') == NULL){
 		CommandTable::currentCommand->addArg(arg);
 		return;
@@ -94,9 +96,15 @@ void expandRegexTokens(char * arg){
 		if(regexec(&regex, ent->d_name, 0, NULL, 0) == 0){
 			//add arg if name matches
 			CommandTable::currentCommand->addArg(strdup(ent->d_name));
+			argAdded = true;
 		}
 	}
 	closedir(dir);
+	if(!argAdded){
+		noArgDefault.erase(remove(noArgDefault.begin(), noArgDefault.end(), '?'), noArgDefault.end());
+		noArgDefault.erase(remove(noArgDefault.begin(), noArgDefault.end(), '*'), noArgDefault.end());
+		CommandTable::currentCommand->addArg(strdup(noArgDefault.c_str()));
+	}
 }
 
 void
