@@ -1,8 +1,8 @@
 
 
-%token	<string_val> WORD 
+%token	<string_val> WORD ERROROUTPUT
 
-%token 	INVALID OUTPUTFILE NEWLINE INPUTFILE APPENDFILE GREATGREATAMPERSAND AMPERSAND PIPE ERRORGREATAMPERSAND ERROROUTPUT
+%token 	INVALID OUTPUTFILE NEWLINE INPUTFILE APPENDFILE GREATGREATAMPERSAND AMPERSAND PIPE ERRORGREATAMPERSAND
 
 %union	{
 		char   *string_val;
@@ -28,6 +28,8 @@ int yylex();
 
 
 void expandRegexTokens(char * arg){
+	std::string noArgDefault(arg);
+	bool argAdded = false;
 	if(strchr(arg, '*') == NULL && strchr(arg, '?') == NULL){
 		CommandTable::currentCommand->addArg(arg);
 		return;
@@ -94,9 +96,15 @@ void expandRegexTokens(char * arg){
 		if(regexec(&regex, ent->d_name, 0, NULL, 0) == 0){
 			//add arg if name matches
 			CommandTable::currentCommand->addArg(strdup(ent->d_name));
+			argAdded = true;
 		}
 	}
 	closedir(dir);
+	if(!argAdded){
+		noArgDefault.erase(remove(noArgDefault.begin(), noArgDefault.end(), '?'), noArgDefault.end());
+		noArgDefault.erase(remove(noArgDefault.begin(), noArgDefault.end(), '*'), noArgDefault.end());
+		CommandTable::currentCommand->addArg(strdup(noArgDefault.c_str()));
+	}
 }
 
 void
@@ -121,7 +129,6 @@ cmd: parse_cmd
 
 parse_cmd:	
 	pipe_list iomod_list bg_opt NEWLINE {
-		printf("   Yacc: Execute command\n");
 		CommandTable::currentCommandTable.execute();
 	}
 	| NEWLINE {CommandTable::currentCommandTable.execute();}
@@ -144,14 +151,12 @@ pipe_list:	pipe_list PIPE cmd_and_args
 
 arg:
 	WORD {
-            printf("   Yacc: insert argument \"%s\"\n", $1);
 			expandRegexTokens($1);
 	}
 	;
 
 cmd_word:
 	WORD {
-        	printf("   Yacc: insert command \"%s\"\n", $1);
 	    	CommandTable::currentCommand = new Command();
 			CommandTable::currentCommand->addArg( $1 );
 	}
@@ -159,27 +164,25 @@ cmd_word:
 
 iomod_opt:
 	OUTPUTFILE WORD ERRORGREATAMPERSAND{
-		printf("   Yacc: insert output/erroroutput \"%s\"\n", $2);
 		CommandTable::currentCommandTable.outputFile = $2;
 		CommandTable::currentCommandTable.errorFile = (char *)malloc((strlen(CommandTable::currentCommandTable.outputFile)+1)*sizeof(char));
 		strcpy(CommandTable::currentCommandTable.errorFile, CommandTable::currentCommandTable.outputFile);
 	}
 	| OUTPUTFILE WORD {
-		printf("   Yacc: insert output \"%s\"\n", $2);
 		CommandTable::currentCommandTable.outputFile = $2;
 	}
 	|INPUTFILE WORD {
-		printf("   Yacc: insert input \"%s\"\n", $2);
 		CommandTable::currentCommandTable.inputFile = $2;
 	}
 	| APPENDFILE WORD{
-		printf("   Yacc: insert output \"%s\"\n", $2);
-		printf(" Yacc: setting output Append\n");
 		CommandTable::currentCommandTable.outputFile = $2;
 		CommandTable::currentCommandTable.append = true;
 	}
 	| ERROROUTPUT WORD{
 		CommandTable::currentCommandTable.errorFile = $2;
+	}
+	| ERROROUTPUT {
+		CommandTable::currentCommandTable.errorFile = $1;
 	}
 	;
 
@@ -189,7 +192,6 @@ iomod_list:	iomod_list iomod_opt
 
 bg_opt:
 	AMPERSAND{
-		printf(" Yacc: setting background True\n");
 		CommandTable::currentCommandTable.background = true;
 	}
 	|/* empty */

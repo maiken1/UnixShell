@@ -35,7 +35,6 @@ struct CommandTable {
   bool bye = false;
 
   void prompt();
-  void print();
   void execute();
   void clear();
   int CheckNumberOfArguments(char * command, int inputArguments, int min, int max);
